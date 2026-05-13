@@ -19,7 +19,7 @@ const MANAGER_LINKS: NavLink[] = [
   { href: "/customers", label: "Customers" },
   { href: "/suppliers", label: "Suppliers" },
   { href: "/users", label: "Users" },
-  { href: "/internal/ledger-debug", label: "Ledger" },
+  { href: "/adjustments", label: "Adjustments" },
 ];
 
 export function TopNav({
