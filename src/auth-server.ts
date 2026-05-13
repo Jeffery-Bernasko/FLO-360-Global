@@ -25,7 +25,8 @@ export async function requireUser(): Promise<AuthenticatedUser> {
       isActive: true,
     },
   });
-  if (!dbUser?.isActive) throw new UnauthorizedError();
+  if (!dbUser) throw new UnauthorizedError();
+  if (!dbUser.isActive) throw new UnauthorizedError();
   return {
     ...sessionUser,
     email: dbUser.email,

@@ -53,7 +53,7 @@ async function main() {
     }
 
     await db.transaction(async (tx) => {
-      const [created] = await tx
+      const createdRows = await tx
         .insert(users)
         .values({
           email,
@@ -64,9 +64,10 @@ async function main() {
         })
         .returning({ id: users.id });
 
-      if (!created) {
+      if (createdRows.length === 0) {
         throw new Error("Failed to create manager account");
       }
+      const created = createdRows[0];
 
       await tx.insert(auditLog).values({
         actorUserId: null,

@@ -59,8 +59,8 @@ describe("requireUserFromSession", () => {
   it("returns the user when one is signed in", () => {
     const u = requireUserFromSession(workerSession);
     expect(u.id).toBe("user-2");
-    expect(u.email).toBe("manager@example.com");
-    expect(u.name).toBe("Mgr");
+    expect(u.email).toBe(workerSession.user.email);
+    expect(u.name).toBe(workerSession.user.name);
     expect(u.role).toBe("worker");
   });
 });

@@ -56,11 +56,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async jwt({ token, user }) {
       if (user) {
         if (!user.id) {
-          throw new Error("Invalid user id");
+          throw new Error("Invalid user id: missing id claim");
         }
         const role = (user as { role?: UserRole }).role;
         if (role !== "worker" && role !== "manager") {
-          throw new Error("Invalid user role");
+          throw new Error(`Invalid user role claim: ${String(role)}`);
         }
         token.id = user.id;
         token.role = role;
@@ -69,10 +69,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
     async session({ session, token }) {
       if (!session.user || !token.id) {
-        throw new Error("Invalid session token");
+        throw new Error("Invalid session token: missing user or id claim");
       }
       if (token.role !== "worker" && token.role !== "manager") {
-        throw new Error("Invalid session role");
+        throw new Error(`Invalid session role claim: ${String(token.role)}`);
       }
       session.user.id = token.id;
       session.user.role = token.role;
