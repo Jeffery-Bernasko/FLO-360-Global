@@ -36,9 +36,31 @@ describe("requireUserFromSession", () => {
     ).toThrow(UnauthorizedError);
   });
 
+  it("throws Unauthorized when required user fields are missing", () => {
+    expect(() =>
+      requireUserFromSession({
+        // @ts-expect-error testing missing fields
+        user: { id: "user-3", role: "worker" },
+        expires: managerSession.expires,
+      }),
+    ).toThrow(UnauthorizedError);
+  });
+
+  it("throws Unauthorized when role is invalid", () => {
+    expect(() =>
+      requireUserFromSession({
+        // @ts-expect-error testing invalid role
+        user: { ...workerSession.user, role: "admin" },
+        expires: managerSession.expires,
+      }),
+    ).toThrow(UnauthorizedError);
+  });
+
   it("returns the user when one is signed in", () => {
     const u = requireUserFromSession(workerSession);
     expect(u.id).toBe("user-2");
+    expect(u.email).toBe("manager@example.com");
+    expect(u.name).toBe("Mgr");
     expect(u.role).toBe("worker");
   });
 });

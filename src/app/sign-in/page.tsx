@@ -4,6 +4,12 @@ import { AuthError } from "next-auth";
 
 type SearchParams = Promise<{ error?: string; from?: string }>;
 
+function toSafeRedirectPath(value: string | undefined): string {
+  const path = (value ?? "").trim();
+  if (!path.startsWith("/") || path.startsWith("//")) return "/";
+  return path;
+}
+
 export default async function SignInPage({
   searchParams,
 }: {
@@ -13,12 +19,13 @@ export default async function SignInPage({
   if (session?.user) redirect("/");
 
   const { error, from } = await searchParams;
+  const safeFrom = toSafeRedirectPath(from);
 
   async function signInAction(formData: FormData) {
     "use server";
     const email = String(formData.get("email") ?? "").trim().toLowerCase();
     const password = String(formData.get("password") ?? "");
-    const dest = String(formData.get("from") ?? "/");
+    const dest = toSafeRedirectPath(String(formData.get("from") ?? "/"));
 
     try {
       await signIn("credentials", {
@@ -45,7 +52,7 @@ export default async function SignInPage({
         action={signInAction}
         className="space-y-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200"
       >
-        <input type="hidden" name="from" value={from ?? "/"} />
+        <input type="hidden" name="from" value={safeFrom} />
 
         <label className="block">
           <span className="text-sm font-medium text-slate-700">Email</span>

@@ -1,9 +1,13 @@
 import { auth } from "@/auth";
+import { db } from "@/db";
 import {
+  UnauthorizedError,
   type AuthenticatedUser,
   requireManagerFromSession,
   requireUserFromSession,
 } from "@/auth-helpers";
+import { users } from "@/db/schema";
+import { eq } from "drizzle-orm";
 
 /**
  * Returns the current signed-in user, or throws UnauthorizedError.
@@ -11,7 +15,23 @@ import {
  */
 export async function requireUser(): Promise<AuthenticatedUser> {
   const session = await auth();
-  return requireUserFromSession(session);
+  const sessionUser = requireUserFromSession(session);
+  const dbUser = await db.query.users.findFirst({
+    where: eq(users.id, sessionUser.id),
+    columns: {
+      email: true,
+      name: true,
+      role: true,
+      isActive: true,
+    },
+  });
+  if (!dbUser?.isActive) throw new UnauthorizedError();
+  return {
+    ...sessionUser,
+    email: dbUser.email,
+    name: dbUser.name,
+    role: dbUser.role,
+  };
 }
 
 /**

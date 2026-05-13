@@ -30,10 +30,14 @@ export function requireUserFromSession(
   session: Session | null,
 ): AuthenticatedUser {
   if (!session?.user?.id) throw new UnauthorizedError();
+  if (!session.user.email || !session.user.name) throw new UnauthorizedError();
+  if (session.user.role !== "worker" && session.user.role !== "manager") {
+    throw new UnauthorizedError();
+  }
   return {
     id: session.user.id,
-    email: session.user.email ?? "",
-    name: session.user.name ?? "",
+    email: session.user.email,
+    name: session.user.name,
     role: session.user.role,
   };
 }

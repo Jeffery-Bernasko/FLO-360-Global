@@ -26,7 +26,7 @@ async function main() {
   const name = values.name?.trim();
   if (!email || !name) {
     console.error(
-      "Usage: pnpm seed:admin --email=<email> --name=<name> [--password=<pwd>]",
+      "Usage: npm run seed:admin -- --email=<email> --name=<name> [--password=<pwd>]",
     );
     process.exit(1);
   }
@@ -40,39 +40,45 @@ async function main() {
 
   const client = postgres(process.env.DATABASE_URL, { max: 1 });
   const db = drizzle(client);
+  try {
+    const existing = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, email))
+      .limit(1);
 
-  const existing = await db
-    .select()
-    .from(users)
-    .where(eq(users.email, email))
-    .limit(1);
+    if (existing.length > 0) {
+      console.error(`A user with email ${email} already exists. Aborting.`);
+      process.exit(1);
+    }
 
-  if (existing.length > 0) {
-    console.error(`A user with email ${email} already exists. Aborting.`);
+    await db.transaction(async (tx) => {
+      const [created] = await tx
+        .insert(users)
+        .values({
+          email,
+          name,
+          passwordHash,
+          role: "manager",
+          isActive: true,
+        })
+        .returning({ id: users.id });
+
+      if (!created) {
+        throw new Error("Failed to create manager account");
+      }
+
+      await tx.insert(auditLog).values({
+        actorUserId: null,
+        action: "user.create",
+        entityType: "user",
+        entityId: created.id,
+        payload: { source: "seed-admin", role: "manager", email, name },
+      });
+    });
+  } finally {
     await client.end();
-    process.exit(1);
   }
-
-  const [created] = await db
-    .insert(users)
-    .values({
-      email,
-      name,
-      passwordHash,
-      role: "manager",
-      isActive: true,
-    })
-    .returning({ id: users.id });
-
-  await db.insert(auditLog).values({
-    actorUserId: null,
-    action: "user.create",
-    entityType: "user",
-    entityId: created.id,
-    payload: { source: "seed-admin", role: "manager", email, name },
-  });
-
-  await client.end();
 
   console.log("\nManager account created.");
   console.log(`  Email:    ${email}`);

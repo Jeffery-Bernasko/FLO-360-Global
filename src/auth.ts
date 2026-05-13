@@ -14,7 +14,7 @@ const credentialsSchema = z.object({
 const EIGHT_HOURS_IN_SECONDS = 60 * 60 * 8;
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  trustHost: true,
+  trustHost: process.env.NODE_ENV === "development",
   session: {
     strategy: "jwt",
     maxAge: EIGHT_HOURS_IN_SECONDS,
@@ -55,16 +55,27 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.id = user.id as string;
-        token.role = (user as { role: UserRole }).role;
+        if (!user.id) {
+          throw new Error("Invalid user id");
+        }
+        const role = (user as { role?: UserRole }).role;
+        if (role !== "worker" && role !== "manager") {
+          throw new Error("Invalid user role");
+        }
+        token.id = user.id;
+        token.role = role;
       }
       return token;
     },
     async session({ session, token }) {
-      if (token && session.user) {
-        session.user.id = token.id as string;
-        session.user.role = token.role as UserRole;
+      if (!session.user || !token.id) {
+        throw new Error("Invalid session token");
       }
+      if (token.role !== "worker" && token.role !== "manager") {
+        throw new Error("Invalid session role");
+      }
+      session.user.id = token.id;
+      session.user.role = token.role;
       return session;
     },
   },
