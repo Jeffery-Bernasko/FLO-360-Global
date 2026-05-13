@@ -8,6 +8,8 @@ const WORKER_LINKS: NavLink[] = [{ href: "/", label: "Home" }];
 
 const MANAGER_LINKS: NavLink[] = [
   { href: "/", label: "Home" },
+  { href: "/customers", label: "Customers" },
+  { href: "/suppliers", label: "Suppliers" },
   { href: "/users", label: "Users" },
   { href: "/internal/ledger-debug", label: "Ledger" },
 ];

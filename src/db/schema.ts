@@ -11,6 +11,7 @@ import {
   jsonb,
   index,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 export const userRoleEnum = pgEnum("user_role", ["worker", "manager"]);
 export const movementKindEnum = pgEnum("movement_kind", [
@@ -78,6 +79,56 @@ export const stockMovements = pgTable(
   }),
 );
 
+export const customers = pgTable(
+  "customers",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    phone: text("phone"),
+    location: text("location"),
+    notes: text("notes"),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdateFn(() => new Date()),
+  },
+  (t) => ({
+    activeNameIdx: index("customers_active_name_idx").on(
+      t.isActive,
+      sql`lower(${t.name})`,
+    ),
+  }),
+);
+
+export const suppliers = pgTable(
+  "suppliers",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    country: text("country"),
+    contact: text("contact"),
+    notes: text("notes"),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdateFn(() => new Date()),
+  },
+  (t) => ({
+    activeNameIdx: index("suppliers_active_name_idx").on(
+      t.isActive,
+      sql`lower(${t.name})`,
+    ),
+  }),
+);
+
 export type UserRole = (typeof userRoleEnum.enumValues)[number];
 export type MovementKind = (typeof movementKindEnum.enumValues)[number];
 export type SourceFormKind = (typeof sourceFormKindEnum.enumValues)[number];
@@ -87,3 +138,7 @@ export type AuditLogEntry = typeof auditLog.$inferSelect;
 export type NewAuditLogEntry = typeof auditLog.$inferInsert;
 export type StockMovement = typeof stockMovements.$inferSelect;
 export type NewStockMovement = typeof stockMovements.$inferInsert;
+export type Customer = typeof customers.$inferSelect;
+export type NewCustomer = typeof customers.$inferInsert;
+export type Supplier = typeof suppliers.$inferSelect;
+export type NewSupplier = typeof suppliers.$inferInsert;

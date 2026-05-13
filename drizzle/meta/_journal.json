@@ -15,6 +15,13 @@
       "when": 1778638400007,
       "tag": "0001_stock_movements",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1778670658199,
+      "tag": "0002_parties",
+      "breakpoints": true
     }
   ]
 }
