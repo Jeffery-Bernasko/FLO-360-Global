@@ -44,6 +44,7 @@ export function PartyPicker({
   const [selected, setSelected] = useState<PartyOption | null>(initial);
   const [isPending, startTransition] = useTransition();
   const containerRef = useRef<HTMLDivElement>(null);
+  const textInputRef = useRef<HTMLInputElement>(null);
 
   // Close the dropdown when clicking outside.
   useEffect(() => {
@@ -53,6 +54,12 @@ export function PartyPicker({
     document.addEventListener("mousedown", onClick);
     return () => document.removeEventListener("mousedown", onClick);
   }, []);
+
+  useEffect(() => {
+    if (!required) return;
+    const message = selected ? "" : `Please select a ${kind}.`;
+    textInputRef.current?.setCustomValidity(message);
+  }, [kind, required, selected]);
 
   // Debounced search.
   useEffect(() => {
@@ -96,10 +103,11 @@ export function PartyPicker({
         type="hidden"
         name={fieldName}
         value={selected?.id ?? ""}
-        required={required}
       />
       <input
+        ref={textInputRef}
         type="text"
+        required={required}
         value={query}
         onChange={(e) => {
           setQuery(e.target.value);
