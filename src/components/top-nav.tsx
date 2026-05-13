@@ -7,12 +7,15 @@ type NavLink = { href: string; label: string };
 const WORKER_LINKS: NavLink[] = [
   { href: "/", label: "Home" },
   { href: "/inbound", label: "Inbound" },
+  { href: "/outbound", label: "Outbound" },
 ];
 
 const MANAGER_LINKS: NavLink[] = [
   { href: "/", label: "Home" },
-  { href: "/approvals/inbound", label: "Approvals" },
+  { href: "/approvals/inbound", label: "Inbox: in" },
+  { href: "/approvals/outbound", label: "Inbox: out" },
   { href: "/inbound", label: "Inbound" },
+  { href: "/outbound", label: "Outbound" },
   { href: "/customers", label: "Customers" },
   { href: "/suppliers", label: "Suppliers" },
   { href: "/users", label: "Users" },
