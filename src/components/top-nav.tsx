@@ -9,6 +9,7 @@ const WORKER_LINKS: NavLink[] = [{ href: "/", label: "Home" }];
 const MANAGER_LINKS: NavLink[] = [
   { href: "/", label: "Home" },
   { href: "/users", label: "Users" },
+  { href: "/internal/ledger-debug", label: "Ledger" },
 ];
 
 export function TopNav({

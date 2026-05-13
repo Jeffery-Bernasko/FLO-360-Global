@@ -6,10 +6,22 @@ import {
   pgEnum,
   uuid,
   bigserial,
+  bigint,
+  integer,
   jsonb,
+  index,
 } from "drizzle-orm/pg-core";
 
 export const userRoleEnum = pgEnum("user_role", ["worker", "manager"]);
+export const movementKindEnum = pgEnum("movement_kind", [
+  "inbound",
+  "outbound",
+  "adjustment",
+]);
+export const sourceFormKindEnum = pgEnum("source_form_kind", [
+  "inbound",
+  "outbound",
+]);
 
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -41,8 +53,37 @@ export const auditLog = pgTable("audit_log", {
     .defaultNow(),
 });
 
+export const stockMovements = pgTable(
+  "stock_movements",
+  {
+    id: bigserial("id", { mode: "bigint" }).primaryKey(),
+    kind: movementKindEnum("kind").notNull(),
+    boxesDelta: integer("boxes_delta").notNull(),
+    reason: text("reason"),
+    sourceFormKind: sourceFormKindEnum("source_form_kind"),
+    sourceFormId: bigint("source_form_id", { mode: "bigint" }),
+    createdBy: uuid("created_by")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => ({
+    createdAtIdx: index("stock_movements_created_at_idx").on(t.createdAt),
+    sourceIdx: index("stock_movements_source_idx").on(
+      t.sourceFormKind,
+      t.sourceFormId,
+    ),
+  }),
+);
+
 export type UserRole = (typeof userRoleEnum.enumValues)[number];
+export type MovementKind = (typeof movementKindEnum.enumValues)[number];
+export type SourceFormKind = (typeof sourceFormKindEnum.enumValues)[number];
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type AuditLogEntry = typeof auditLog.$inferSelect;
 export type NewAuditLogEntry = typeof auditLog.$inferInsert;
+export type StockMovement = typeof stockMovements.$inferSelect;
+export type NewStockMovement = typeof stockMovements.$inferInsert;
