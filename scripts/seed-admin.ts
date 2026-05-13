@@ -1,16 +1,10 @@
 import "dotenv/config";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
 import { parseArgs } from "node:util";
-import { randomBytes } from "node:crypto";
 import { users, auditLog } from "../src/db/schema";
-
-function generateTempPassword(): string {
-  // 12 url-safe characters, easy enough to read aloud
-  return randomBytes(9).toString("base64url");
-}
+import { generateTempPassword, hashPassword } from "../src/lib/passwords";
 
 async function main() {
   const { values } = parseArgs({
@@ -36,7 +30,7 @@ async function main() {
   }
 
   const password = values.password ?? generateTempPassword();
-  const passwordHash = await bcrypt.hash(password, 12);
+  const passwordHash = await hashPassword(password);
 
   const client = postgres(process.env.DATABASE_URL, { max: 1 });
   const db = drizzle(client);
