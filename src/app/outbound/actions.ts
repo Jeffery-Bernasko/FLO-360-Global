@@ -48,6 +48,7 @@ export async function submitOutboundAction(
       note: String(formData.get("note") ?? "") || null,
     });
 
+    revalidatePath("/");
     revalidatePath("/outbound");
     revalidatePath("/approvals/outbound");
     return { ok: true, data: { id: String(created.id) } };
@@ -76,6 +77,7 @@ export async function editAndResubmitOutboundAction(
       note: String(formData.get("note") ?? "") || null,
     });
 
+    revalidatePath("/");
     revalidatePath("/outbound");
     revalidatePath(`/outbound/${formId}`);
     revalidatePath("/approvals/outbound");

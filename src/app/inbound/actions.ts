@@ -50,6 +50,7 @@ export async function submitInboundAction(
       attachmentKey: uploadedKey,
     });
 
+    revalidatePath("/");
     revalidatePath("/inbound");
     revalidatePath("/approvals/inbound");
     return { ok: true, data: { id: String(created.id) } };
@@ -81,6 +82,7 @@ export async function editAndResubmitInboundAction(
       attachmentKey: uploadedKey ?? undefined,
     });
 
+    revalidatePath("/");
     revalidatePath("/inbound");
     revalidatePath(`/inbound/${formId}`);
     revalidatePath("/approvals/inbound");

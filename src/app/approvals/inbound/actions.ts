@@ -28,6 +28,7 @@ export async function approveInboundAction(
     if (!formId) return { ok: false, error: "Missing form id." };
 
     const updated = await approveInbound({ actor, formId });
+    revalidatePath("/");
     revalidatePath("/approvals/inbound");
     revalidatePath(`/approvals/inbound/${formId}`);
     revalidatePath("/inbound");
@@ -50,6 +51,7 @@ export async function rejectInboundAction(
     if (!formId) return { ok: false, error: "Missing form id." };
 
     const updated = await rejectInbound({ actor, formId, reason });
+    revalidatePath("/");
     revalidatePath("/approvals/inbound");
     revalidatePath(`/approvals/inbound/${formId}`);
     revalidatePath("/inbound");
