@@ -311,6 +311,39 @@ describe("editAndResubmitInbound", () => {
     ).rejects.toMatchObject({ code: "not_editable" });
   });
 
+  it("rejects when the replacement supplier is not found or inactive", async () => {
+    mocks.state.selectFormReturning = [
+      {
+        id: 1n,
+        status: "rejected",
+        createdBy: worker.id,
+        supplierId: "old-supplier",
+        boxes: 5,
+        receivedDate: "2026-05-01",
+      },
+    ];
+
+    mocks.state.supplierLookup = [];
+    await expect(
+      editAndResubmitInbound({
+        ...validInput,
+        formId: 1n,
+        actor: worker,
+      }),
+    ).rejects.toMatchObject({ code: "invalid_supplier" });
+
+    mocks.state.supplierLookup = [
+      { id: validInput.supplierId, isActive: false },
+    ];
+    await expect(
+      editAndResubmitInbound({
+        ...validInput,
+        formId: 1n,
+        actor: worker,
+      }),
+    ).rejects.toMatchObject({ code: "invalid_supplier" });
+  });
+
   it("happy path: flips status back to pending, clears decision fields, audits", async () => {
     mocks.state.selectFormReturning = [
       {

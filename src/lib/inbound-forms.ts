@@ -141,6 +141,18 @@ export async function editAndResubmitInbound(
       );
     }
 
+    const supplierRows = await tx
+      .select({ id: suppliers.id, isActive: suppliers.isActive })
+      .from(suppliers)
+      .where(eq(suppliers.id, data.supplierId))
+      .limit(1);
+    if (supplierRows.length === 0 || !supplierRows[0].isActive) {
+      throw new InboundFormError(
+        "invalid_supplier",
+        "Supplier not found or inactive.",
+      );
+    }
+
     const [updated] = await tx
       .update(inboundForms)
       .set({
@@ -384,4 +396,3 @@ export async function countPendingInboundForms(): Promise<number> {
     .where(eq(inboundForms.status, "pending"));
   return rows.length;
 }
-
