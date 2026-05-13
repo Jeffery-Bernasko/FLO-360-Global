@@ -1,8 +1,16 @@
+import { redirect } from "next/navigation";
 import { requireUser } from "@/auth-server";
+import { UnauthorizedError } from "@/auth-helpers";
 import { TopNav } from "@/components/top-nav";
 
 export default async function HomePage() {
-  const user = await requireUser();
+  let user: Awaited<ReturnType<typeof requireUser>>;
+  try {
+    user = await requireUser();
+  } catch (err) {
+    if (err instanceof UnauthorizedError) redirect("/sign-in?from=/");
+    throw err;
+  }
 
   return (
     <>
