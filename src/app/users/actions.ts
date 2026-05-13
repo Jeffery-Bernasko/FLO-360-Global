@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
+import { forbidden, redirect, unauthorized } from "next/navigation";
 import { requireManager } from "@/auth-server";
 import { ForbiddenError, UnauthorizedError } from "@/auth-helpers";
 import {
@@ -60,7 +60,9 @@ export async function deactivateUserAction(
     });
     revalidatePath("/users");
   } catch (err) {
-    toResult<null>(err);
+    if (err instanceof UnauthorizedError) unauthorized();
+    if (err instanceof ForbiddenError) forbidden();
+    throw err;
   }
 }
 
@@ -75,7 +77,9 @@ export async function reactivateUserAction(
     });
     revalidatePath("/users");
   } catch (err) {
-    toResult<null>(err);
+    if (err instanceof UnauthorizedError) unauthorized();
+    if (err instanceof ForbiddenError) forbidden();
+    throw err;
   }
 }
 
