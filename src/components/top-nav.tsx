@@ -20,6 +20,7 @@ const MANAGER_LINKS: NavLink[] = [
   { href: "/suppliers", label: "Suppliers" },
   { href: "/users", label: "Users" },
   { href: "/adjustments", label: "Adjustments" },
+  { href: "/reports", label: "Reports" },
 ];
 
 export function TopNav({

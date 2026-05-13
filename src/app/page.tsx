@@ -70,9 +70,9 @@ async function ManagerDashboardSection() {
             description="Damaged, returned, or recount"
           />
           <QuickAction
-            href="/adjustments"
-            label="Adjustments"
-            description="History of corrections"
+            href="/reports"
+            label="View reports"
+            description="Exports for accounting"
           />
         </div>
       </section>
