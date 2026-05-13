@@ -164,13 +164,21 @@ export async function getMovements(
   input: GetMovementsInput,
   tx?: LedgerClient,
 ): Promise<StockMovement[]> {
-  if (input.from > input.to) {
+  if (
+    Number.isNaN(input.from.getTime()) ||
+    Number.isNaN(input.to.getTime()) ||
+    input.from > input.to
+  ) {
     throw new StockLedgerError(
       "invalid_range",
       "`from` must be before or equal to `to`.",
     );
   }
-  const cap = Math.min(Math.max(input.limit ?? DEFAULT_LIMIT, 1), MAX_LIMIT);
+  const requestedLimit =
+    input.limit != null && Number.isInteger(input.limit)
+      ? input.limit
+      : DEFAULT_LIMIT;
+  const cap = Math.min(Math.max(requestedLimit, 1), MAX_LIMIT);
   const client = tx ?? db;
 
   return client

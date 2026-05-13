@@ -214,6 +214,15 @@ describe("getMovements", () => {
     ).rejects.toMatchObject({ code: "invalid_range" });
   });
 
+  it("rejects invalid dates", async () => {
+    await expect(
+      getMovements({
+        from: new Date("bad"),
+        to: new Date("2026-05-13"),
+      }),
+    ).rejects.toMatchObject({ code: "invalid_range" });
+  });
+
   it("returns the rows from the underlying query", async () => {
     const rows = [
       { id: 1n, kind: "inbound", boxesDelta: 100, createdAt: new Date() },
@@ -248,6 +257,16 @@ describe("getMovements", () => {
     await getMovements({
       from: new Date("2026-05-01"),
       to: new Date("2026-05-13"),
+    });
+    expect(mocks.spies.limitFn).toHaveBeenLastCalledWith(200);
+  });
+
+  it("uses the default limit for non-integer limits", async () => {
+    mocks.state.selectMovementsRows = [];
+    await getMovements({
+      from: new Date("2026-05-01"),
+      to: new Date("2026-05-13"),
+      limit: 1.5,
     });
     expect(mocks.spies.limitFn).toHaveBeenLastCalledWith(200);
   });
