@@ -4,15 +4,17 @@ import Link from "next/link";
 import { useActionState, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { PartyPicker } from "@/components/party-picker";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { FormField, FormCard } from "@/components/ui/form-field";
+import { Alert } from "@/components/ui/alert";
 import {
   submitOutboundAction,
   editAndResubmitOutboundAction,
   quoteOutboundStockAction,
   type ActionResult,
 } from "./actions";
-
-const inputClass =
-  "mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2.5 text-base shadow-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900";
 
 type Mode =
   | { kind: "create"; currentStock: number }
@@ -56,7 +58,6 @@ export function OutboundFormFields({ mode }: { mode: Mode }) {
     }
   }, [state, router]);
 
-  // Refresh the stock quote when the worker changes the boxes value.
   useEffect(() => {
     if (boxes <= 0) return;
     const handle = setTimeout(() => {
@@ -77,130 +78,108 @@ export function OutboundFormFields({ mode }: { mode: Mode }) {
       : null;
 
   return (
-    <form
-      action={formAction}
-      className="space-y-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200"
-    >
-      {mode.kind === "edit" && (
-        <input type="hidden" name="formId" value={mode.formId} />
-      )}
+    <form action={formAction}>
+      <FormCard>
+        {mode.kind === "edit" && (
+          <input type="hidden" name="formId" value={mode.formId} />
+        )}
 
-      <label className="block">
-        <span className="text-sm font-medium text-slate-700">Customer</span>
-        <div className="mt-1">
+        <FormField label="Customer">
           <PartyPicker
             kind="customer"
             required
             initial={mode.kind === "edit" ? mode.defaults.customer : null}
           />
+        </FormField>
+
+        <div className="grid grid-cols-2 gap-4">
+          <FormField label="Boxes">
+            <Input
+              type="number"
+              name="boxes"
+              required
+              min={1}
+              step={1}
+              inputMode="numeric"
+              value={boxes || ""}
+              onChange={(e) => setBoxes(Number(e.target.value))}
+            />
+          </FormField>
+
+          <FormField label="Unit price (GH&#x20B5;)">
+            <Input
+              type="text"
+              name="unitPriceGhs"
+              required
+              inputMode="decimal"
+              pattern="^\d+(\.\d{1,2})?$"
+              value={unitPriceGhs}
+              onChange={(e) => setUnitPriceGhs(e.target.value)}
+              placeholder="50.00"
+            />
+          </FormField>
         </div>
-      </label>
 
-      <div className="grid grid-cols-2 gap-3">
-        <label className="block">
-          <span className="text-sm font-medium text-slate-700">Boxes</span>
-          <input
-            type="number"
-            name="boxes"
-            required
-            min={1}
-            step={1}
-            inputMode="numeric"
-            value={boxes || ""}
-            onChange={(e) => setBoxes(Number(e.target.value))}
-            className={inputClass}
-          />
-        </label>
-
-        <label className="block">
-          <span className="text-sm font-medium text-slate-700">
-            Unit price (GH₵)
-          </span>
-          <input
-            type="text"
-            name="unitPriceGhs"
-            required
-            inputMode="decimal"
-            pattern="^\d+(\.\d{1,2})?$"
-            value={unitPriceGhs}
-            onChange={(e) => setUnitPriceGhs(e.target.value)}
-            placeholder="50.00"
-            className={inputClass}
-          />
-        </label>
-      </div>
-
-      <div className="rounded-lg bg-slate-50 p-3 text-sm ring-1 ring-slate-200">
-        <div className="flex items-baseline justify-between">
-          <span className="text-slate-500">Current stock</span>
-          <span className="font-medium">{quotedStock} boxes</span>
-        </div>
-        {previewTotalGhs ? (
-          <div className="mt-1 flex items-baseline justify-between">
-            <span className="text-slate-500">Total</span>
-            <span className="font-medium">GH₵ {previewTotalGhs}</span>
+        {/* Stock + total preview */}
+        <div className="rounded-lg bg-zinc-50 p-4 ring-1 ring-surface-border">
+          <div className="flex items-baseline justify-between text-sm">
+            <span className="text-zinc-500">Current stock</span>
+            <span className="font-mono font-medium text-zinc-900">{quotedStock} boxes</span>
           </div>
-        ) : null}
-        {exceedsStock ? (
-          <p className="mt-2 text-rose-700">
-            Requested boxes exceed current stock. Reduce the quantity.
-          </p>
-        ) : null}
-      </div>
+          {previewTotalGhs ? (
+            <div className="mt-1.5 flex items-baseline justify-between text-sm">
+              <span className="text-zinc-500">Total</span>
+              <span className="font-mono font-semibold text-zinc-900">GH&#x20B5; {previewTotalGhs}</span>
+            </div>
+          ) : null}
+          {exceedsStock ? (
+            <p className="mt-2 text-sm font-medium text-rose-600">
+              Requested boxes exceed current stock. Reduce the quantity.
+            </p>
+          ) : null}
+        </div>
 
-      <label className="block">
-        <span className="text-sm font-medium text-slate-700">
-          Dispatch date
-        </span>
-        <input
-          type="date"
-          name="dispatchDate"
-          required
-          defaultValue={
-            mode.kind === "edit" ? mode.defaults.dispatchDate : today
-          }
-          className={inputClass}
-        />
-      </label>
+        <FormField label="Dispatch date">
+          <Input
+            type="date"
+            name="dispatchDate"
+            required
+            defaultValue={mode.kind === "edit" ? mode.defaults.dispatchDate : today}
+          />
+        </FormField>
 
-      <label className="block">
-        <span className="text-sm font-medium text-slate-700">
-          Note <span className="text-slate-400">(optional)</span>
-        </span>
-        <textarea
-          name="note"
-          rows={3}
-          defaultValue={mode.kind === "edit" ? mode.defaults.note ?? "" : ""}
-          className={inputClass}
-          placeholder="Anything the manager should know"
-        />
-      </label>
+        <FormField label="Note" optional>
+          <Textarea
+            name="note"
+            rows={3}
+            defaultValue={mode.kind === "edit" ? mode.defaults.note ?? "" : ""}
+            placeholder="Anything the manager should know"
+          />
+        </FormField>
 
-      {state && !state.ok ? (
-        <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700 ring-1 ring-rose-200">
-          {state.error}
-        </p>
-      ) : null}
+        {state && !state.ok ? <Alert>{state.error}</Alert> : null}
 
-      <div className="flex gap-2">
-        <button
-          type="submit"
-          disabled={isPending || exceedsStock || boxes <= 0}
-          className="flex-1 rounded-xl bg-slate-900 px-4 py-3 text-base font-medium text-white shadow-sm hover:bg-slate-700 disabled:opacity-50"
-        >
-          {isPending
-            ? "Submitting…"
-            : mode.kind === "create"
-              ? "Submit for approval"
-              : "Resubmit"}
-        </button>
-        <Link
-          href="/outbound"
-          className="flex-1 rounded-xl border border-slate-300 bg-white px-4 py-3 text-center text-base font-medium text-slate-700 hover:bg-slate-50"
-        >
-          Cancel
-        </Link>
-      </div>
+        <div className="flex gap-3 pt-1">
+          <Button
+            type="submit"
+            disabled={isPending || exceedsStock || boxes <= 0}
+            className="flex-1"
+            size="lg"
+          >
+            {isPending
+              ? "Submitting..."
+              : mode.kind === "create"
+                ? "Submit for approval"
+                : "Resubmit"}
+          </Button>
+          <Link
+            href="/outbound"
+            className="flex-1 inline-flex items-center justify-center rounded-lg bg-white px-5 py-3 text-sm font-medium text-zinc-700 shadow-sm ring-1 ring-surface-border transition-colors hover:bg-zinc-50"
+          >
+            Cancel
+          </Link>
+        </div>
+      </FormCard>
     </form>
   );
 }

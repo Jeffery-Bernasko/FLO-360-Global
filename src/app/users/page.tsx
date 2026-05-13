@@ -1,8 +1,10 @@
-import Link from "next/link";
 import { forbidden, unauthorized } from "next/navigation";
 import { requireManager } from "@/auth-server";
 import { ForbiddenError, UnauthorizedError } from "@/auth-helpers";
-import { TopNav } from "@/components/top-nav";
+import { AppShell } from "@/components/app-shell";
+import { PageHeader } from "@/components/ui/page-header";
+import { LinkButton } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { listUsers } from "@/lib/users";
 import {
   deactivateUserAction,
@@ -25,150 +27,121 @@ export default async function UsersPage() {
   const inactive = all.filter((u) => !u.isActive);
 
   return (
-    <>
-      <TopNav user={me} />
-      <main className="mx-auto max-w-3xl px-4 py-6">
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-semibold">Users</h1>
-            <p className="text-sm text-slate-500">
-              Workers and managers who can sign in.
-            </p>
-          </div>
-          <Link
-            href="/users/new"
-            className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-slate-700"
-          >
-            Add worker
-          </Link>
-        </div>
+    <AppShell user={me}>
+      <PageHeader
+        title="Users"
+        description="Workers and managers who can sign in."
+        actions={<LinkButton href="/users/new">Add worker</LinkButton>}
+      />
 
-        <Section title="Active" empty="No active users yet.">
-          {active.map((u) => (
-            <UserRow key={u.id} user={u} currentUserId={me.id} />
-          ))}
-        </Section>
-
+      <div className="space-y-6">
+        <UserTable title="Active" users={active} currentUserId={me.id} emptyMessage="No active users." />
         {inactive.length > 0 && (
-          <div className="mt-8">
-            <Section title="Inactive" empty="">
-              {inactive.map((u) => (
-                <UserRow key={u.id} user={u} currentUserId={me.id} />
-              ))}
-            </Section>
-          </div>
+          <UserTable title="Inactive" users={inactive} currentUserId={me.id} emptyMessage="" />
         )}
-      </main>
-    </>
+      </div>
+    </AppShell>
   );
 }
 
-function Section({
+type UserItem = {
+  id: string;
+  email: string;
+  name: string;
+  role: "worker" | "manager";
+  isActive: boolean;
+};
+
+function UserTable({
   title,
-  empty,
-  children,
+  users,
+  currentUserId,
+  emptyMessage,
 }: {
   title: string;
-  empty: string;
-  children: React.ReactNode;
+  users: UserItem[];
+  currentUserId: string;
+  emptyMessage: string;
 }) {
-  const items = Array.isArray(children) ? children : [children];
-  const isEmpty = items.filter(Boolean).length === 0;
+  if (users.length === 0 && emptyMessage) {
+    return (
+      <section>
+        <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-400">{title}</h2>
+        <div className="rounded-xl bg-white px-6 py-8 text-center text-sm text-zinc-500 ring-1 ring-surface-border">
+          {emptyMessage}
+        </div>
+      </section>
+    );
+  }
+  if (users.length === 0) return null;
 
   return (
     <section>
-      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-        {title}
-      </h2>
-      <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-slate-200">
-        {isEmpty ? (
-          <p className="p-4 text-sm text-slate-500">{empty}</p>
-        ) : (
-          <ul className="divide-y divide-slate-200">{children}</ul>
-        )}
+      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-400">{title}</h2>
+      <div className="overflow-x-auto rounded-xl bg-white ring-1 ring-surface-border">
+        <table className="min-w-full divide-y divide-surface-border text-sm">
+          <thead>
+            <tr className="bg-zinc-50/60">
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">Name</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">Email</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">Role</th>
+              <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-zinc-500">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-surface-border/60">
+            {users.map((u) => {
+              const isMe = u.id === currentUserId;
+              return (
+                <tr key={u.id} className="transition-colors hover:bg-zinc-50/50">
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-zinc-900">{u.name}</span>
+                      {!u.isActive && <Badge variant="danger">Inactive</Badge>}
+                      {isMe && <Badge variant="success">You</Badge>}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-zinc-500">{u.email}</td>
+                  <td className="px-4 py-3">
+                    <Badge variant={u.role === "manager" ? "manager" : "worker"}>
+                      {u.role === "manager" ? "Manager" : "Worker"}
+                    </Badge>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center justify-end gap-2">
+                      {u.isActive ? (
+                        <>
+                          <ResetPasswordButton userId={u.id} userName={u.name} />
+                          {!isMe && (
+                            <form action={deactivateUserAction}>
+                              <input type="hidden" name="userId" value={u.id} />
+                              <button
+                                type="submit"
+                                className="rounded-md px-2.5 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-50 focus-ring transition-colors"
+                              >
+                                Deactivate
+                              </button>
+                            </form>
+                          )}
+                        </>
+                      ) : (
+                        <form action={reactivateUserAction}>
+                          <input type="hidden" name="userId" value={u.id} />
+                          <button
+                            type="submit"
+                            className="rounded-md px-2.5 py-1.5 text-xs font-medium text-emerald-600 hover:bg-emerald-50 focus-ring transition-colors"
+                          >
+                            Reactivate
+                          </button>
+                        </form>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
     </section>
-  );
-}
-
-type UserRowProps = {
-  user: {
-    id: string;
-    email: string;
-    name: string;
-    role: "worker" | "manager";
-    isActive: boolean;
-  };
-  currentUserId: string;
-};
-
-function UserRow({ user, currentUserId }: UserRowProps) {
-  const isMe = user.id === currentUserId;
-
-  return (
-    <li className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="truncate font-medium">{user.name}</p>
-          <Badge color={user.role === "manager" ? "indigo" : "slate"}>
-            {user.role === "manager" ? "Manager" : "Worker"}
-          </Badge>
-          {!user.isActive && <Badge color="rose">Inactive</Badge>}
-          {isMe && <Badge color="emerald">You</Badge>}
-        </div>
-        <p className="truncate text-sm text-slate-500">{user.email}</p>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2">
-        {user.isActive ? (
-          <>
-            <ResetPasswordButton userId={user.id} userName={user.name} />
-            {!isMe && (
-              <form action={deactivateUserAction}>
-                <input type="hidden" name="userId" value={user.id} />
-                <button
-                  type="submit"
-                  className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-50"
-                >
-                  Deactivate
-                </button>
-              </form>
-            )}
-          </>
-        ) : (
-          <form action={reactivateUserAction}>
-            <input type="hidden" name="userId" value={user.id} />
-            <button
-              type="submit"
-              className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-50"
-            >
-              Reactivate
-            </button>
-          </form>
-        )}
-      </div>
-    </li>
-  );
-}
-
-function Badge({
-  children,
-  color,
-}: {
-  children: React.ReactNode;
-  color: "slate" | "indigo" | "rose" | "emerald";
-}) {
-  const styles = {
-    slate: "bg-slate-100 text-slate-700",
-    indigo: "bg-indigo-50 text-indigo-700",
-    rose: "bg-rose-50 text-rose-700",
-    emerald: "bg-emerald-50 text-emerald-700",
-  } as const;
-  return (
-    <span
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${styles[color]}`}
-    >
-      {children}
-    </span>
   );
 }

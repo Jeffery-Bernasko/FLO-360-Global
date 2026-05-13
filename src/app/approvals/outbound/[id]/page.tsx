@@ -1,9 +1,14 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { requireManager } from "@/auth-server";
 import { ForbiddenError, UnauthorizedError } from "@/auth-helpers";
-import { TopNav } from "@/components/top-nav";
+import { AppShell } from "@/components/app-shell";
 import { StatusBadge } from "@/components/status-badge";
+import { Card } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
+import { Alert } from "@/components/ui/alert";
+import { LinkButton } from "@/components/ui/button";
+import { DetailField, DetailGrid } from "@/components/ui/detail-field";
+import { IconFile } from "@/components/icons";
 import { getOutboundForm, formatInvoiceLabel } from "@/lib/outbound-forms";
 import { getAttachmentUrl } from "@/lib/attachments";
 import { getCurrentStock } from "@/lib/stock-ledger";
@@ -36,56 +41,54 @@ export default async function ApproveOutboundDetailPage({ params }: PageProps) {
   const insufficient = form.status === "pending" && form.boxes > currentStock;
 
   return (
-    <>
-      <TopNav user={me} />
-      <main className="mx-auto max-w-md px-4 py-6">
-        <header className="mb-6">
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-semibold">
-              Outbound #{String(form.id)}
-            </h1>
-            <StatusBadge status={form.status} />
-          </div>
-          <p className="text-sm text-slate-500">{form.customerName}</p>
-        </header>
+    <AppShell user={me}>
+      <div className="mx-auto max-w-lg">
+        <PageHeader
+          title={`Outbound #${String(form.id)}`}
+          description={form.customerName}
+          actions={<StatusBadge status={form.status} />}
+        />
 
-        <section className="space-y-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-          <Field label="Boxes" value={`${form.boxes}`} />
-          <Field label="Unit price" value={formatGhs(form.unitPricePesewas)} />
-          <Field label="Total" value={formatGhs(totalPesewas)} />
-          <Field label="Dispatch date" value={form.dispatchDate} />
-          {form.note ? <Field label="Note" value={form.note} /> : null}
-          {form.status === "pending" ? (
-            <Field
-              label="After approval, stock would be"
-              value={`${currentStock - form.boxes} boxes (currently ${currentStock})`}
-            />
-          ) : null}
-          {form.status === "approved" && form.invoiceNumber ? (
-            <Field
-              label="Invoice"
-              value={formatInvoiceLabel(
-                form.invoiceNumber,
-                form.decidedAt
-                  ? new Date(form.decidedAt).getFullYear()
-                  : new Date().getFullYear(),
-              )}
-            />
-          ) : null}
+        <Card>
+          <DetailGrid>
+            <DetailField label="Boxes" value={`${form.boxes}`} mono />
+            <DetailField label="Unit price" value={formatGhs(form.unitPricePesewas)} mono />
+            <DetailField label="Total" value={formatGhs(totalPesewas)} mono />
+            <DetailField label="Dispatch date" value={form.dispatchDate} />
+            {form.note ? <DetailField label="Note" value={form.note} /> : null}
+            {form.status === "pending" ? (
+              <DetailField
+                label="After approval"
+                value={`${currentStock - form.boxes} boxes (currently ${currentStock})`}
+              />
+            ) : null}
+            {form.status === "approved" && form.invoiceNumber ? (
+              <DetailField
+                label="Invoice"
+                value={formatInvoiceLabel(
+                  form.invoiceNumber,
+                  form.decidedAt
+                    ? new Date(form.decidedAt).getFullYear()
+                    : new Date().getFullYear(),
+                )}
+              />
+            ) : null}
+          </DetailGrid>
+
           {invoiceUrl ? (
-            <div>
-              <p className="text-sm font-medium text-slate-500">Invoice PDF</p>
+            <div className="mt-5 pt-5 border-t border-surface-border">
               <a
                 href={invoiceUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="mt-1 inline-block rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                className="inline-flex items-center gap-2 rounded-lg bg-zinc-50 px-3 py-2 text-sm font-medium text-zinc-700 ring-1 ring-surface-border transition-colors hover:bg-zinc-100"
               >
+                <IconFile width={16} height={16} />
                 Open invoice
               </a>
             </div>
           ) : null}
-        </section>
+        </Card>
 
         {form.status === "pending" ? (
           <section className="mt-6">
@@ -95,30 +98,18 @@ export default async function ApproveOutboundDetailPage({ params }: PageProps) {
             />
           </section>
         ) : (
-          <section className="mt-6 rounded-2xl bg-slate-50 p-4 text-sm text-slate-700 ring-1 ring-slate-200">
+          <Alert variant="info" className="mt-6">
             This form has already been {form.status}
             {form.decisionReason ? ` ("${form.decisionReason}")` : ""}.
-          </section>
+          </Alert>
         )}
 
-        <div className="mt-6 flex">
-          <Link
-            href="/approvals/outbound"
-            className="flex-1 rounded-xl border border-slate-300 bg-white px-4 py-3 text-center text-base font-medium text-slate-700 hover:bg-slate-50"
-          >
+        <div className="mt-6">
+          <LinkButton href="/approvals/outbound" variant="secondary" size="lg" className="w-full">
             Back to inbox
-          </Link>
+          </LinkButton>
         </div>
-      </main>
-    </>
-  );
-}
-
-function Field({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className="text-sm font-medium text-slate-500">{label}</p>
-      <p className="mt-0.5 text-base text-slate-900">{value}</p>
-    </div>
+      </div>
+    </AppShell>
   );
 }

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth, signIn } from "@/auth";
 import { AuthError } from "next-auth";
+import { IconBox } from "@/components/icons";
 
 type SearchParams = Promise<{ error?: string; from?: string }>;
 
@@ -42,53 +43,75 @@ export default async function SignInPage({
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center px-4 py-10">
-      <header className="mb-8 text-center">
-        <h1 className="text-2xl font-semibold">FLO 360 Global</h1>
-        <p className="mt-1 text-sm text-slate-500">Sign in to continue</p>
-      </header>
+    <main className="flex min-h-dvh items-center justify-center bg-sidebar px-4 py-10">
+      {/* Subtle grid pattern */}
+      <div className="fixed inset-0 opacity-[0.03]" style={{
+        backgroundImage: "linear-gradient(rgba(255,255,255,.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.1) 1px, transparent 1px)",
+        backgroundSize: "32px 32px",
+      }} />
 
-      <form
-        action={signInAction}
-        className="space-y-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200"
-      >
-        <input type="hidden" name="from" value={safeFrom} />
-
-        <label className="block">
-          <span className="text-sm font-medium text-slate-700">Email</span>
-          <input
-            type="email"
-            name="email"
-            autoComplete="email"
-            required
-            className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2.5 text-base shadow-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
-          />
-        </label>
-
-        <label className="block">
-          <span className="text-sm font-medium text-slate-700">Password</span>
-          <input
-            type="password"
-            name="password"
-            autoComplete="current-password"
-            required
-            className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2.5 text-base shadow-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
-          />
-        </label>
-
-        {error === "invalid" && (
-          <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700 ring-1 ring-rose-200">
-            Invalid email or password.
+      <div className="relative w-full max-w-sm">
+        {/* Logo */}
+        <div className="mb-8 flex flex-col items-center">
+          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-teal-600 shadow-lg shadow-teal-600/30">
+            <IconBox width={28} height={28} className="text-white" />
+          </div>
+          <h1 className="font-display text-2xl font-bold tracking-tight text-white">
+            FLO 360 Global
+          </h1>
+          <p className="mt-1 text-sm text-sidebar-text">
+            Sign in to your warehouse account
           </p>
-        )}
+        </div>
 
-        <button
-          type="submit"
-          className="w-full rounded-xl bg-slate-900 px-4 py-3 text-base font-medium text-white shadow-sm transition active:bg-slate-700"
+        {/* Form card */}
+        <form
+          action={signInAction}
+          className="space-y-5 rounded-2xl bg-white p-6 shadow-2xl shadow-black/20 ring-1 ring-white/10"
         >
-          Sign in
-        </button>
-      </form>
+          <input type="hidden" name="from" value={safeFrom} />
+
+          <label className="block">
+            <span className="text-sm font-medium text-zinc-700">Email</span>
+            <input
+              type="email"
+              name="email"
+              autoComplete="email"
+              required
+              className="mt-1.5 block w-full rounded-lg border border-surface-border bg-white px-3 py-2.5 text-sm shadow-sm placeholder:text-zinc-400 focus-ring"
+              placeholder="you@company.com"
+            />
+          </label>
+
+          <label className="block">
+            <span className="text-sm font-medium text-zinc-700">Password</span>
+            <input
+              type="password"
+              name="password"
+              autoComplete="current-password"
+              required
+              className="mt-1.5 block w-full rounded-lg border border-surface-border bg-white px-3 py-2.5 text-sm shadow-sm placeholder:text-zinc-400 focus-ring"
+            />
+          </label>
+
+          {error === "invalid" && (
+            <div role="alert" className="rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-700 ring-1 ring-rose-200">
+              Invalid email or password.
+            </div>
+          )}
+
+          <button
+            type="submit"
+            className="w-full rounded-lg bg-teal-700 px-4 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-teal-800 active:bg-teal-900 focus-ring"
+          >
+            Sign in
+          </button>
+        </form>
+
+        <p className="mt-6 text-center text-xs text-sidebar-text/60">
+          Warehouse inventory management system
+        </p>
+      </div>
     </main>
   );
 }

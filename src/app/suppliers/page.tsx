@@ -2,7 +2,12 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireManager } from "@/auth-server";
 import { ForbiddenError, UnauthorizedError } from "@/auth-helpers";
-import { TopNav } from "@/components/top-nav";
+import { AppShell } from "@/components/app-shell";
+import { PageHeader } from "@/components/ui/page-header";
+import { LinkButton } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
+import { IconChevron } from "@/components/icons";
 import { listSuppliers } from "@/lib/suppliers";
 import type { Supplier } from "@/db/schema";
 
@@ -21,95 +26,89 @@ export default async function SuppliersPage() {
   const inactive = all.filter((s) => !s.isActive);
 
   return (
-    <>
-      <TopNav user={me} />
-      <main className="mx-auto max-w-3xl px-4 py-6">
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-semibold">Suppliers</h1>
-            <p className="text-sm text-slate-500">
-              Overseas counterparts who deliver inbound shipments.
-            </p>
-          </div>
-          <Link
-            href="/suppliers/new"
-            className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-slate-700"
-          >
-            Add supplier
-          </Link>
+    <AppShell user={me}>
+      <PageHeader
+        title="Suppliers"
+        description="Overseas counterparts who deliver inbound shipments."
+        actions={<LinkButton href="/suppliers/new">Add supplier</LinkButton>}
+      />
+
+      {active.length === 0 && inactive.length === 0 ? (
+        <EmptyState
+          title="No suppliers yet"
+          description="Add your first supplier to get started."
+          actionLabel="Add supplier"
+          actionHref="/suppliers/new"
+        />
+      ) : (
+        <div className="space-y-6">
+          <SupplierTable title="Active" suppliers={active} emptyMessage="No active suppliers." />
+          {inactive.length > 0 && (
+            <SupplierTable title="Inactive" suppliers={inactive} emptyMessage="" />
+          )}
         </div>
-
-        <Section title="Active" empty="No active suppliers yet.">
-          {active.map((s) => (
-            <SupplierRow key={s.id} supplier={s} />
-          ))}
-        </Section>
-
-        {inactive.length > 0 && (
-          <div className="mt-8">
-            <Section title="Inactive" empty="">
-              {inactive.map((s) => (
-                <SupplierRow key={s.id} supplier={s} />
-              ))}
-            </Section>
-          </div>
-        )}
-      </main>
-    </>
+      )}
+    </AppShell>
   );
 }
 
-function Section({
+function SupplierTable({
   title,
-  empty,
-  children,
+  suppliers,
+  emptyMessage,
 }: {
   title: string;
-  empty: string;
-  children: React.ReactNode;
+  suppliers: Supplier[];
+  emptyMessage: string;
 }) {
-  const items = Array.isArray(children) ? children : [children];
-  const isEmpty = items.filter(Boolean).length === 0;
+  if (suppliers.length === 0 && emptyMessage) {
+    return (
+      <section>
+        <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-400">{title}</h2>
+        <div className="rounded-xl bg-white px-6 py-8 text-center text-sm text-zinc-500 ring-1 ring-surface-border">
+          {emptyMessage}
+        </div>
+      </section>
+    );
+  }
+  if (suppliers.length === 0) return null;
 
   return (
     <section>
-      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-        {title}
-      </h2>
-      <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-slate-200">
-        {isEmpty ? (
-          <p className="p-4 text-sm text-slate-500">{empty}</p>
-        ) : (
-          <ul className="divide-y divide-slate-200">{children}</ul>
-        )}
+      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-400">{title}</h2>
+      <div className="overflow-x-auto rounded-xl bg-white ring-1 ring-surface-border">
+        <table className="min-w-full divide-y divide-surface-border text-sm">
+          <thead>
+            <tr className="bg-zinc-50/60">
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">Name</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">Country</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">Contact</th>
+              <th className="px-4 py-3 w-8"><span className="sr-only">Edit</span></th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-surface-border/60">
+            {suppliers.map((s) => (
+              <tr key={s.id} className="transition-colors hover:bg-teal-50/30">
+                <td className="px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <Link href={`/suppliers/${s.id}`} className="font-medium text-zinc-900 hover:text-teal-700">
+                      {s.name}
+                    </Link>
+                    {!s.isActive && <Badge variant="danger">Inactive</Badge>}
+                  </div>
+                </td>
+                <td className="px-4 py-3 text-zinc-500">{s.country || "--"}</td>
+                <td className="px-4 py-3 text-zinc-500">{s.contact || "--"}</td>
+                <td className="px-4 py-3">
+                  <Link href={`/suppliers/${s.id}`} className="text-zinc-400 hover:text-teal-600" aria-label={`Edit ${s.name}`}>
+                    <IconChevron width={16} height={16} />
+                  </Link>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </section>
-  );
-}
-
-function SupplierRow({ supplier }: { supplier: Supplier }) {
-  return (
-    <li>
-      <Link
-        href={`/suppliers/${supplier.id}`}
-        className="flex items-center justify-between gap-4 p-4 hover:bg-slate-50"
-      >
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <p className="truncate font-medium">{supplier.name}</p>
-            {!supplier.isActive && (
-              <span className="inline-flex items-center rounded-full bg-rose-50 px-2 py-0.5 text-xs font-medium text-rose-700">
-                Inactive
-              </span>
-            )}
-          </div>
-          <p className="truncate text-sm text-slate-500">
-            {[supplier.country, supplier.contact].filter(Boolean).join(" · ") ||
-              "—"}
-          </p>
-        </div>
-        <span aria-hidden className="text-slate-400">›</span>
-      </Link>
-    </li>
   );
 }

@@ -2,8 +2,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ForbiddenError, UnauthorizedError } from "@/auth-helpers";
 import { requireManager } from "@/auth-server";
-import { TopNav } from "@/components/top-nav";
-import { ReportsHeader } from "./report-ui";
+import { AppShell } from "@/components/app-shell";
+import { PageHeader } from "@/components/ui/page-header";
+import { IconReports, IconCustomers, IconSuppliers } from "@/components/icons";
 
 export default async function ReportsPage() {
   let me: Awaited<ReturnType<typeof requireManager>>;
@@ -16,51 +17,59 @@ export default async function ReportsPage() {
   }
 
   return (
-    <>
-      <TopNav user={me} />
-      <main className="mx-auto max-w-3xl px-4 py-6">
-        <ReportsHeader
-          title="Reports"
-          description="Export stock movements, customer sales, and supplier deliveries for a date range."
+    <AppShell user={me}>
+      <PageHeader
+        title="Reports"
+        description="Export stock movements, customer sales, and supplier deliveries for a date range."
+      />
+
+      <div className="grid gap-4 sm:grid-cols-3">
+        <ReportCard
+          href="/reports/movements"
+          icon={<IconReports width={24} height={24} />}
+          title="Stock Movement"
+          description="Chronological ledger with running balance."
         />
-        <div className="grid gap-3 sm:grid-cols-3">
-          <ReportCard
-            href="/reports/movements"
-            title="Stock movement"
-            description="Chronological ledger with running balance."
-          />
-          <ReportCard
-            href="/reports/customers"
-            title="Customers"
-            description="Boxes and GHS totals by customer."
-          />
-          <ReportCard
-            href="/reports/suppliers"
-            title="Suppliers"
-            description="Received boxes by supplier."
-          />
-        </div>
-      </main>
-    </>
+        <ReportCard
+          href="/reports/customers"
+          icon={<IconCustomers width={24} height={24} />}
+          title="Customers"
+          description="Boxes and GHS totals by customer."
+        />
+        <ReportCard
+          href="/reports/suppliers"
+          icon={<IconSuppliers width={24} height={24} />}
+          title="Suppliers"
+          description="Received boxes by supplier."
+        />
+      </div>
+    </AppShell>
   );
 }
 
 function ReportCard({
   href,
+  icon,
   title,
   description,
 }: {
   href: string;
+  icon: React.ReactNode;
   title: string;
   description: string;
 }) {
   return (
     <Link
       href={href}
-      className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 hover:bg-slate-50"
+      className="group flex flex-col gap-3 rounded-xl bg-white p-5 shadow-sm ring-1 ring-surface-border transition-all hover:shadow-md hover:-translate-y-0.5"
     >
-      <p className="font-medium text-slate-950">{title}</p>
-      <p className="mt-1 text-sm text-slate-500">{description}</p>
+      <div className="rounded-lg bg-zinc-100 p-2.5 text-zinc-500 transition-colors group-hover:bg-teal-50 group-hover:text-teal-700 w-fit">
+        {icon}
+      </div>
+      <div>
+        <p className="font-display text-base font-semibold text-zinc-900">{title}</p>
+        <p className="mt-1 text-sm text-zinc-500">{description}</p>
+      </div>
     </Link>
   );
 }

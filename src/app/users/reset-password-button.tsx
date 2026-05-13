@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { resetUserPasswordAction, type ActionResult } from "./actions";
 
 export function ResetPasswordButton({
@@ -18,11 +19,13 @@ export function ResetPasswordButton({
 
   if (state?.ok && state.data.userId === userId) {
     return (
-      <div className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900 ring-1 ring-amber-200">
-        New temp password for <strong>{userName}</strong>:{" "}
-        <code className="rounded bg-white px-1.5 py-0.5 font-mono text-[0.75rem]">
-          {state.data.tempPassword}
-        </code>
+      <div className="rounded-lg bg-amber-50 px-3 py-2 text-xs ring-1 ring-amber-200">
+        <span className="text-amber-900">
+          New temp password for <strong>{userName}</strong>:{" "}
+          <code className="rounded bg-white px-1.5 py-0.5 font-mono text-[0.75rem]">
+            {state.data.tempPassword}
+          </code>
+        </span>
         <div className="mt-1 text-[0.7rem] text-amber-700">
           Share with the worker out-of-band. This is the only time it is shown.
         </div>
@@ -35,7 +38,7 @@ export function ResetPasswordButton({
       <button
         type="button"
         onClick={() => setConfirming(true)}
-        className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100"
+        className="rounded-md px-2.5 py-1.5 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-100 focus-ring"
       >
         Reset password
       </button>
@@ -45,18 +48,14 @@ export function ResetPasswordButton({
   return (
     <form action={formAction} className="flex items-center gap-2">
       <input type="hidden" name="userId" value={userId} />
-      <span className="text-xs text-slate-600">Reset {userName}&apos;s password?</span>
-      <button
-        type="submit"
-        disabled={isPending}
-        className="rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-slate-700 disabled:opacity-50"
-      >
-        {isPending ? "Resetting…" : "Confirm"}
-      </button>
+      <span className="text-xs text-zinc-600">Reset {userName}&apos;s password?</span>
+      <Button type="submit" disabled={isPending} size="sm">
+        {isPending ? "Resetting..." : "Confirm"}
+      </Button>
       <button
         type="button"
         onClick={() => setConfirming(false)}
-        className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100"
+        className="rounded-md px-2.5 py-1.5 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-100 focus-ring"
       >
         Cancel
       </button>

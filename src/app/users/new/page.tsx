@@ -1,7 +1,8 @@
 import { forbidden, unauthorized } from "next/navigation";
 import { requireManager } from "@/auth-server";
 import { ForbiddenError, UnauthorizedError } from "@/auth-helpers";
-import { TopNav } from "@/components/top-nav";
+import { AppShell } from "@/components/app-shell";
+import { PageHeader } from "@/components/ui/page-header";
 import { NewWorkerForm } from "./new-worker-form";
 
 export default async function NewUserPage() {
@@ -15,19 +16,14 @@ export default async function NewUserPage() {
   }
 
   return (
-    <>
-      <TopNav user={me} />
-      <main className="mx-auto max-w-md px-4 py-6">
-        <header className="mb-6">
-          <h1 className="text-xl font-semibold">Add worker</h1>
-          <p className="text-sm text-slate-500">
-            A temporary password will be generated. Hand it to the worker
-            in person; they sign in with their email and that password.
-          </p>
-        </header>
-
+    <AppShell user={me}>
+      <div className="mx-auto max-w-lg">
+        <PageHeader
+          title="Add Worker"
+          description="A temporary password will be generated. Hand it to the worker in person; they sign in with their email and that password."
+        />
         <NewWorkerForm />
-      </main>
-    </>
+      </div>
+    </AppShell>
   );
 }

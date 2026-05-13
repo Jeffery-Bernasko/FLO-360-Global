@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import { requireManager } from "@/auth-server";
 import { ForbiddenError, UnauthorizedError } from "@/auth-helpers";
-import { TopNav } from "@/components/top-nav";
+import { AppShell } from "@/components/app-shell";
+import { PageHeader } from "@/components/ui/page-header";
 import { CustomerForm } from "../customer-form";
 
 export default async function NewCustomerPage() {
@@ -15,18 +16,14 @@ export default async function NewCustomerPage() {
   }
 
   return (
-    <>
-      <TopNav user={me} />
-      <main className="mx-auto max-w-md px-4 py-6">
-        <header className="mb-6">
-          <h1 className="text-xl font-semibold">Add customer</h1>
-          <p className="text-sm text-slate-500">
-            Workers will pick this customer when filling outbound forms.
-          </p>
-        </header>
-
+    <AppShell user={me}>
+      <div className="mx-auto max-w-lg">
+        <PageHeader
+          title="Add Customer"
+          description="Workers will pick this customer when filling outbound forms."
+        />
         <CustomerForm />
-      </main>
-    </>
+      </div>
+    </AppShell>
   );
 }

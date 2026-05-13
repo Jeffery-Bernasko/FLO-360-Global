@@ -1,9 +1,10 @@
 import type { FormStatus } from "@/db/schema";
+import { Badge } from "./ui/badge";
 
-const STYLES: Record<FormStatus, string> = {
-  pending: "bg-amber-50 text-amber-800 ring-amber-200",
-  approved: "bg-emerald-50 text-emerald-800 ring-emerald-200",
-  rejected: "bg-rose-50 text-rose-800 ring-rose-200",
+const VARIANT: Record<FormStatus, "pending" | "approved" | "rejected"> = {
+  pending: "pending",
+  approved: "approved",
+  rejected: "rejected",
 };
 
 const LABELS: Record<FormStatus, string> = {
@@ -13,11 +14,5 @@ const LABELS: Record<FormStatus, string> = {
 };
 
 export function StatusBadge({ status }: { status: FormStatus }) {
-  return (
-    <span
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ${STYLES[status]}`}
-    >
-      {LABELS[status]}
-    </span>
-  );
+  return <Badge variant={VARIANT[status]}>{LABELS[status]}</Badge>;
 }

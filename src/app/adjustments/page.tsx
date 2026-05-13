@@ -1,8 +1,12 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireManager } from "@/auth-server";
 import { ForbiddenError, UnauthorizedError } from "@/auth-helpers";
-import { TopNav } from "@/components/top-nav";
+import { AppShell } from "@/components/app-shell";
+import { PageHeader } from "@/components/ui/page-header";
+import { LinkButton } from "@/components/ui/button";
+import { MetricCard } from "@/components/ui/metric-card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { IconBox } from "@/components/icons";
 import { getAdjustmentsAndCurrentStock } from "@/lib/adjustments";
 
 export default async function AdjustmentsPage() {
@@ -18,67 +22,75 @@ export default async function AdjustmentsPage() {
   const { rows, currentStock } = await getAdjustmentsAndCurrentStock();
 
   return (
-    <>
-      <TopNav user={me} />
-      <main className="mx-auto max-w-3xl px-4 py-6">
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-semibold">Stock adjustments</h1>
-            <p className="text-sm text-slate-500">
-              Current stock: <strong>{currentStock}</strong> boxes
-            </p>
-          </div>
-          <Link
-            href="/adjustments/new"
-            className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-slate-700"
-          >
-            New adjustment
-          </Link>
-        </div>
+    <AppShell user={me}>
+      <PageHeader
+        title="Stock Adjustments"
+        description="Manual corrections for damages, returns, and recounts."
+        actions={<LinkButton href="/adjustments/new">New adjustment</LinkButton>}
+      />
 
-        <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-slate-200">
-          {rows.length === 0 ? (
-            <p className="p-4 text-sm text-slate-500">
-              No adjustments yet. Use this for damages, returns, or recount
-              corrections.
-            </p>
-          ) : (
-            <ul className="divide-y divide-slate-200">
+      <div className="mb-6">
+        <MetricCard
+          label="Current Stock"
+          value={currentStock}
+          unit="boxes"
+          variant={currentStock <= 0 ? "danger" : "default"}
+          icon={<IconBox width={20} height={20} />}
+        />
+      </div>
+
+      {rows.length === 0 ? (
+        <EmptyState
+          title="No adjustments yet"
+          description="Use adjustments for damages, returns, or recount corrections."
+          actionLabel="New adjustment"
+          actionHref="/adjustments/new"
+        />
+      ) : (
+        <div className="overflow-x-auto rounded-xl bg-white ring-1 ring-surface-border">
+          <table className="min-w-full divide-y divide-surface-border text-sm">
+            <thead>
+              <tr className="bg-zinc-50/60">
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">Reason</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">Note</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">By</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">Date</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-zinc-500">Delta</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-surface-border/60">
               {rows.map((r) => (
-                <li
-                  key={String(r.id)}
-                  className="flex items-start justify-between gap-4 p-4 text-sm"
-                >
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-medium">
-                        {r.reason ?? "Adjustment"}
-                      </span>
-                      <span className="text-xs text-slate-500">
-                        {new Date(r.createdAt).toLocaleString()}
-                      </span>
-                    </div>
-                    {r.note ? (
-                      <p className="mt-1 text-slate-700">{r.note}</p>
-                    ) : null}
-                    <p className="mt-1 text-xs text-slate-500">
-                      by {r.actorName ?? "unknown"}
-                    </p>
-                  </div>
-                  <p
-                    className={`font-mono text-base ${
-                      r.boxesDelta > 0 ? "text-emerald-700" : "text-rose-700"
+                <tr key={String(r.id)} className="transition-colors hover:bg-zinc-50/50">
+                  <td className="px-4 py-3 font-medium text-zinc-900">
+                    {r.reason ?? "Adjustment"}
+                  </td>
+                  <td className="px-4 py-3 text-zinc-500 max-w-xs truncate">
+                    {r.note || "--"}
+                  </td>
+                  <td className="px-4 py-3 text-zinc-500">
+                    {r.actorName ?? "unknown"}
+                  </td>
+                  <td className="px-4 py-3 text-zinc-500 whitespace-nowrap">
+                    {new Date(r.createdAt).toLocaleDateString("en-GH", {
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                    })}
+                  </td>
+                  <td
+                    className={`px-4 py-3 text-right font-mono font-medium ${
+                      r.boxesDelta > 0 ? "text-emerald-600" : "text-rose-600"
                     }`}
                   >
                     {r.boxesDelta > 0 ? "+" : ""}
                     {r.boxesDelta}
-                  </p>
-                </li>
+                  </td>
+                </tr>
               ))}
-            </ul>
-          )}
+            </tbody>
+          </table>
         </div>
-      </main>
-    </>
+      )}
+    </AppShell>
   );
 }

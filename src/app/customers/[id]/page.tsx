@@ -1,7 +1,10 @@
 import { notFound, redirect } from "next/navigation";
 import { requireManager } from "@/auth-server";
 import { ForbiddenError, UnauthorizedError } from "@/auth-helpers";
-import { TopNav } from "@/components/top-nav";
+import { AppShell } from "@/components/app-shell";
+import { PageHeader } from "@/components/ui/page-header";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 import { getCustomer } from "@/lib/customers";
 import { CustomerForm } from "../customer-form";
 import {
@@ -26,30 +29,21 @@ export default async function EditCustomerPage({ params }: PageProps) {
   if (!customer) notFound();
 
   return (
-    <>
-      <TopNav user={me} />
-      <main className="mx-auto max-w-md px-4 py-6">
-        <header className="mb-6 flex items-start justify-between gap-2">
-          <div>
-            <h1 className="text-xl font-semibold">{customer.name}</h1>
-            <p className="text-sm text-slate-500">
-              Edit details or change active status.
-            </p>
-          </div>
-          {!customer.isActive && (
-            <span className="inline-flex items-center rounded-full bg-rose-50 px-2 py-0.5 text-xs font-medium text-rose-700">
-              Inactive
-            </span>
-          )}
-        </header>
+    <AppShell user={me}>
+      <div className="mx-auto max-w-lg">
+        <PageHeader
+          title={customer.name}
+          description="Edit details or change active status."
+          actions={!customer.isActive ? <Badge variant="danger">Inactive</Badge> : undefined}
+        />
 
         <CustomerForm customer={customer} />
 
-        <section className="mt-8 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-          <h2 className="text-sm font-semibold">Status</h2>
+        <Card className="mt-6">
+          <h2 className="font-display text-base font-semibold text-zinc-900">Status</h2>
           {customer.isActive ? (
             <>
-              <p className="mt-1 text-sm text-slate-500">
+              <p className="mt-2 text-sm text-zinc-500">
                 Deactivating hides this customer from the picker but keeps
                 history intact.
               </p>
@@ -57,7 +51,7 @@ export default async function EditCustomerPage({ params }: PageProps) {
                 <input type="hidden" name="customerId" value={customer.id} />
                 <button
                   type="submit"
-                  className="rounded-lg bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700 hover:bg-rose-100"
+                  className="rounded-lg bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700 transition-colors hover:bg-rose-100 focus-ring"
                 >
                   Deactivate customer
                 </button>
@@ -65,22 +59,22 @@ export default async function EditCustomerPage({ params }: PageProps) {
             </>
           ) : (
             <>
-              <p className="mt-1 text-sm text-slate-500">
+              <p className="mt-2 text-sm text-zinc-500">
                 Reactivate to make this customer pickable again.
               </p>
               <form action={reactivateCustomerAction} className="mt-3">
                 <input type="hidden" name="customerId" value={customer.id} />
                 <button
                   type="submit"
-                  className="rounded-lg bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-100"
+                  className="rounded-lg bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 transition-colors hover:bg-emerald-100 focus-ring"
                 >
                   Reactivate customer
                 </button>
               </form>
             </>
           )}
-        </section>
-      </main>
-    </>
+        </Card>
+      </div>
+    </AppShell>
   );
 }

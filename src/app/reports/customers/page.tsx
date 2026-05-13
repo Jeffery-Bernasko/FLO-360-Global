@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { ForbiddenError, UnauthorizedError } from "@/auth-helpers";
 import { requireManager } from "@/auth-server";
-import { TopNav } from "@/components/top-nav";
+import { AppShell } from "@/components/app-shell";
 import { formatGhs } from "@/lib/money";
 import { ReportError, parseReportParams, perCustomerReport } from "@/lib/reports";
 import {
@@ -56,66 +56,63 @@ export default async function CustomerReportPage({
   const pageRows = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
-    <>
-      <TopNav user={me} />
-      <main className="mx-auto max-w-5xl px-4 py-6">
-        <ReportsHeader
-          title="Per-customer report"
-          description="Approved outbound totals by customer for the selected period."
-        />
-        <ReportTabs />
-        <DateRangeForm range={range} />
-        <ExportLinks basePath="/reports/customers" range={range} />
-        {error ? (
-          <ReportErrorMessage message={error} />
-        ) : rows.length === 0 ? (
-          <EmptyReport />
-        ) : (
-          <>
-            <div className="overflow-x-auto rounded-2xl bg-white ring-1 ring-slate-200">
-              <table className="min-w-full divide-y divide-slate-200 text-sm">
-                <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  <tr>
-                    <th className="px-4 py-3">Customer</th>
-                    <th className="px-4 py-3">Location</th>
-                    <th className="px-4 py-3 text-right">Boxes</th>
-                    <th className="px-4 py-3 text-right">Total</th>
-                    <th className="px-4 py-3 text-right">Dispatches</th>
-                    <th className="px-4 py-3">Last dispatch</th>
+    <AppShell user={me}>
+      <ReportsHeader
+        title="Per-Customer Report"
+        description="Approved outbound totals by customer for the selected period."
+      />
+      <ReportTabs />
+      <DateRangeForm range={range} />
+      <ExportLinks basePath="/reports/customers" range={range} />
+      {error ? (
+        <ReportErrorMessage message={error} />
+      ) : rows.length === 0 ? (
+        <EmptyReport />
+      ) : (
+        <>
+          <div className="overflow-x-auto rounded-xl bg-white ring-1 ring-surface-border">
+            <table className="min-w-full divide-y divide-surface-border text-sm">
+              <thead>
+                <tr className="bg-zinc-50/60">
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">Customer</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">Location</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-zinc-500">Boxes</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-zinc-500">Total</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-zinc-500">Dispatches</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">Last dispatch</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-surface-border/60">
+                {pageRows.map((row) => (
+                  <tr key={row.customerId} className="transition-colors hover:bg-zinc-50/50">
+                    <td className="px-4 py-3 font-medium text-zinc-900">
+                      {row.customerName}
+                    </td>
+                    <td className="px-4 py-3 text-zinc-500">
+                      {row.customerLocation ?? "--"}
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono">{row.totalBoxes}</td>
+                    <td className="px-4 py-3 text-right font-mono">
+                      {formatGhs(row.totalPesewas)}
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono">{row.dispatchCount}</td>
+                    <td className="px-4 py-3 text-zinc-500">
+                      {row.lastDispatchAt?.toLocaleDateString("en-GH") ?? "--"}
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {pageRows.map((row) => (
-                    <tr key={row.customerId}>
-                      <td className="px-4 py-3 font-medium text-slate-900">
-                        {row.customerName}
-                      </td>
-                      <td className="px-4 py-3 text-slate-600">
-                        {row.customerLocation ?? "-"}
-                      </td>
-                      <td className="px-4 py-3 text-right">{row.totalBoxes}</td>
-                      <td className="px-4 py-3 text-right">
-                        {formatGhs(row.totalPesewas)}
-                      </td>
-                      <td className="px-4 py-3 text-right">{row.dispatchCount}</td>
-                      <td className="px-4 py-3 text-slate-600">
-                        {row.lastDispatchAt?.toLocaleDateString("en-GH") ?? "-"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <PaginationLinks
-              basePath="/reports/customers"
-              currentPage={page}
-              totalRows={rows.length}
-              pageSize={PAGE_SIZE}
-              range={range}
-            />
-          </>
-        )}
-      </main>
-    </>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <PaginationLinks
+            basePath="/reports/customers"
+            currentPage={page}
+            totalRows={rows.length}
+            pageSize={PAGE_SIZE}
+            range={range}
+          />
+        </>
+      )}
+    </AppShell>
   );
 }
