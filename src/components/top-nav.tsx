@@ -4,10 +4,15 @@ import { signOut } from "@/auth";
 
 type NavLink = { href: string; label: string };
 
-const WORKER_LINKS: NavLink[] = [{ href: "/", label: "Home" }];
+const WORKER_LINKS: NavLink[] = [
+  { href: "/", label: "Home" },
+  { href: "/inbound", label: "Inbound" },
+];
 
 const MANAGER_LINKS: NavLink[] = [
   { href: "/", label: "Home" },
+  { href: "/approvals/inbound", label: "Approvals" },
+  { href: "/inbound", label: "Inbound" },
   { href: "/customers", label: "Customers" },
   { href: "/suppliers", label: "Suppliers" },
   { href: "/users", label: "Users" },
