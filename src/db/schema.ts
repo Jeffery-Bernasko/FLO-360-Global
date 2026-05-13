@@ -10,6 +10,8 @@ import {
   integer,
   jsonb,
   index,
+  date,
+  check,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
@@ -22,6 +24,11 @@ export const movementKindEnum = pgEnum("movement_kind", [
 export const sourceFormKindEnum = pgEnum("source_form_kind", [
   "inbound",
   "outbound",
+]);
+export const formStatusEnum = pgEnum("form_status", [
+  "pending",
+  "approved",
+  "rejected",
 ]);
 
 export const users = pgTable("users", {
@@ -129,6 +136,47 @@ export const suppliers = pgTable(
   }),
 );
 
+export const inboundForms = pgTable(
+  "inbound_forms",
+  {
+    id: bigserial("id", { mode: "bigint" }).primaryKey(),
+    supplierId: uuid("supplier_id")
+      .notNull()
+      .references(() => suppliers.id, { onDelete: "restrict" }),
+    boxes: integer("boxes").notNull(),
+    receivedDate: date("received_date").notNull(),
+    note: text("note"),
+    attachmentKey: text("attachment_key"),
+    status: formStatusEnum("status").notNull().default("pending"),
+    decisionReason: text("decision_reason"),
+    createdBy: uuid("created_by")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    decidedBy: uuid("decided_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    decidedAt: timestamp("decided_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdateFn(() => new Date()),
+  },
+  (t) => ({
+    statusCreatedAtIdx: index("inbound_forms_status_created_at_idx").on(
+      t.status,
+      t.createdAt,
+    ),
+    createdByIdx: index("inbound_forms_created_by_idx").on(t.createdBy),
+    boxesPositive: check(
+      "inbound_forms_boxes_positive",
+      sql`${t.boxes} > 0`,
+    ),
+  }),
+);
+
 export type UserRole = (typeof userRoleEnum.enumValues)[number];
 export type MovementKind = (typeof movementKindEnum.enumValues)[number];
 export type SourceFormKind = (typeof sourceFormKindEnum.enumValues)[number];
@@ -142,3 +190,6 @@ export type Customer = typeof customers.$inferSelect;
 export type NewCustomer = typeof customers.$inferInsert;
 export type Supplier = typeof suppliers.$inferSelect;
 export type NewSupplier = typeof suppliers.$inferInsert;
+export type FormStatus = (typeof formStatusEnum.enumValues)[number];
+export type InboundForm = typeof inboundForms.$inferSelect;
+export type NewInboundForm = typeof inboundForms.$inferInsert;
