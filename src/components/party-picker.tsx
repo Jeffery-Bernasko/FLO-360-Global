@@ -56,7 +56,10 @@ export function PartyPicker({
   }, []);
 
   useEffect(() => {
-    if (!required) return;
+    if (!required) {
+      textInputRef.current?.setCustomValidity("");
+      return;
+    }
     const message = selected ? "" : `Please select a ${kind}.`;
     textInputRef.current?.setCustomValidity(message);
   }, [kind, required, selected]);
