@@ -32,7 +32,7 @@ export async function approveInboundAction(
     revalidatePath(`/approvals/inbound/${formId}`);
     revalidatePath("/inbound");
     revalidatePath(`/inbound/${formId}`);
-    revalidatePath("/internal/ledger-debug");
+    revalidatePath("/adjustments");
     return { ok: true, data: { id: String(updated.id) } };
   } catch (err) {
     return toResult(err);
