@@ -39,7 +39,6 @@ describe("requireUserFromSession", () => {
   it("throws Unauthorized when required user fields are missing", () => {
     expect(() =>
       requireUserFromSession({
-        // @ts-expect-error testing missing fields
         user: { id: "user-3", role: "worker" },
         expires: managerSession.expires,
       }),

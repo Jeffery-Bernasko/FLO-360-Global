@@ -16,17 +16,20 @@ const mocks = vi.hoisted(() => {
     orderByArgs: null,
   };
 
-  const select = vi.fn(() => ({
-    from: vi.fn(() => ({
-      where: vi.fn(() => ({
-        limit: vi.fn(async () => state.selectRows),
+  const select = vi.fn((fields?: unknown) => {
+    void fields;
+    return {
+      from: vi.fn(() => ({
+        where: vi.fn(() => ({
+          limit: vi.fn(async () => state.selectRows),
+        })),
+        orderBy: vi.fn(async (...args: unknown[]) => {
+          state.orderByArgs = args;
+          return state.selectRows;
+        }),
       })),
-      orderBy: vi.fn(async (...args: unknown[]) => {
-        state.orderByArgs = args;
-        return state.selectRows;
-      }),
-    })),
-  }));
+    };
+  });
 
   const insert = vi.fn(() => ({
     values: vi.fn(() => ({
