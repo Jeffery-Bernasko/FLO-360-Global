@@ -75,4 +75,51 @@
   .fade-overlay {
     animation: fadeOverlay 0.2s ease-out;
   }
+
+  /* ── Sign-in page ── */
+  .sign-in-page {
+    background-color: #f6f5f1;
+  }
+
+  .sign-in-grid {
+    background-image:
+      linear-gradient(rgba(0,0,0,.045) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,0,0,.045) 1px, transparent 1px),
+      linear-gradient(rgba(0,0,0,.018) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,0,0,.018) 1px, transparent 1px);
+    background-size: 80px 80px, 80px 80px, 16px 16px, 16px 16px;
+  }
+
+  .sign-in-noise {
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    background-repeat: repeat;
+    background-size: 256px 256px;
+  }
+
+  @keyframes signInReveal {
+    from { opacity: 0; transform: translateY(14px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .sign-in-stagger-1,
+  .sign-in-stagger-2,
+  .sign-in-stagger-3,
+  .sign-in-stagger-4,
+  .sign-in-stagger-5 {
+    opacity: 0;
+    animation: signInReveal 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+  .sign-in-stagger-1 { animation-delay: 0.05s; }
+  .sign-in-stagger-2 { animation-delay: 0.12s; }
+  .sign-in-stagger-3 { animation-delay: 0.19s; }
+  .sign-in-stagger-4 { animation-delay: 0.26s; }
+  .sign-in-stagger-5 { animation-delay: 0.33s; }
+
+  @keyframes signInShimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+  .sign-in-btn:hover .absolute {
+    animation: signInShimmer 0.5s ease-out;
+  }
 }
