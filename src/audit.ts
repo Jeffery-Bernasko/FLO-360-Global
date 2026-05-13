@@ -3,6 +3,7 @@ import { auditLog, type NewAuditLogEntry } from "@/db/schema";
 import type { Database } from "@/db";
 
 export type AuditPayload = Record<string, unknown>;
+type AuditWriter = Pick<Database, "insert">;
 
 export type LogInput = {
   action: string;
@@ -20,7 +21,7 @@ export type LogInput = {
  */
 export async function log(
   input: LogInput,
-  tx?: Database,
+  tx?: AuditWriter,
 ): Promise<void> {
   const row: NewAuditLogEntry = {
     action: input.action,
