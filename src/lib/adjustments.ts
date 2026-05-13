@@ -32,7 +32,13 @@ const inputSchema = z.object({
     .int("Boxes must be a whole number.")
     .refine((n) => n !== 0, "Boxes cannot be zero."),
   reason: z.string().refine((s) => reasonSet.has(s), "Pick a valid reason."),
-  note: z.string().trim().max(2000).optional().nullable(),
+  note: z
+    .string()
+    .trim()
+    .max(2000)
+    .optional()
+    .nullable()
+    .transform((value) => (value && value.length > 0 ? value : null)),
 });
 
 export type RecordAdjustmentInput = {
@@ -108,7 +114,7 @@ export async function recordAdjustment(
         payload: {
           boxesDelta: parsed.data.boxesDelta,
           reason: parsed.data.reason,
-          note: parsed.data.note ?? null,
+          note: parsed.data.note,
           resultingStock: currentStock + parsed.data.boxesDelta,
         },
       },
@@ -177,4 +183,3 @@ export async function getAdjustmentsAndCurrentStock(): Promise<{
   ]);
   return { rows, currentStock: Number(stockRow?.total ?? 0) };
 }
-

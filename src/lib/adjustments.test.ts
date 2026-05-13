@@ -186,6 +186,22 @@ describe("recordAdjustment happy path", () => {
       expect.anything(),
     );
   });
+
+  it("normalizes whitespace-only notes to null", async () => {
+    mocks.state.stockSumRows = [{ total: "100" }];
+    await recordAdjustment({
+      actor: manager,
+      boxesDelta: -1,
+      reason: "Other",
+      note: "   ",
+    });
+    expect(mocks.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payload: expect.objectContaining({ note: null }),
+      }),
+      expect.anything(),
+    );
+  });
 });
 
 describe("AdjustmentError shape", () => {
