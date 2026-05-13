@@ -177,6 +177,58 @@ export const inboundForms = pgTable(
   }),
 );
 
+export const outboundForms = pgTable(
+  "outbound_forms",
+  {
+    id: bigserial("id", { mode: "bigint" }).primaryKey(),
+    customerId: uuid("customer_id")
+      .notNull()
+      .references(() => customers.id, { onDelete: "restrict" }),
+    boxes: integer("boxes").notNull(),
+    /** Money is stored as integer pesewas. 1 GHS = 100 pesewas. */
+    unitPricePesewas: integer("unit_price_pesewas").notNull(),
+    /** Stored generated column = boxes * unit_price_pesewas. Always in sync. */
+    totalPesewas: integer("total_pesewas").generatedAlwaysAs(
+      sql`(boxes * unit_price_pesewas)`,
+    ),
+    dispatchDate: date("dispatch_date").notNull(),
+    note: text("note"),
+    status: formStatusEnum("status").notNull().default("pending"),
+    decisionReason: text("decision_reason"),
+    invoiceNumber: bigint("invoice_number", { mode: "bigint" }).unique(),
+    invoicePdfKey: text("invoice_pdf_key"),
+    createdBy: uuid("created_by")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    decidedBy: uuid("decided_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    decidedAt: timestamp("decided_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdateFn(() => new Date()),
+  },
+  (t) => ({
+    statusCreatedAtIdx: index("outbound_forms_status_created_at_idx").on(
+      t.status,
+      t.createdAt,
+    ),
+    createdByIdx: index("outbound_forms_created_by_idx").on(t.createdBy),
+    boxesPositive: check(
+      "outbound_forms_boxes_positive",
+      sql`${t.boxes} > 0`,
+    ),
+    unitPricePositive: check(
+      "outbound_forms_unit_price_positive",
+      sql`${t.unitPricePesewas} > 0`,
+    ),
+  }),
+);
+
 export type UserRole = (typeof userRoleEnum.enumValues)[number];
 export type MovementKind = (typeof movementKindEnum.enumValues)[number];
 export type SourceFormKind = (typeof sourceFormKindEnum.enumValues)[number];
@@ -193,3 +245,5 @@ export type NewSupplier = typeof suppliers.$inferInsert;
 export type FormStatus = (typeof formStatusEnum.enumValues)[number];
 export type InboundForm = typeof inboundForms.$inferSelect;
 export type NewInboundForm = typeof inboundForms.$inferInsert;
+export type OutboundForm = typeof outboundForms.$inferSelect;
+export type NewOutboundForm = typeof outboundForms.$inferInsert;
