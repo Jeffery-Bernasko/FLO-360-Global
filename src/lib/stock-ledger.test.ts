@@ -270,6 +270,23 @@ describe("getMovements", () => {
     });
     expect(mocks.spies.limitFn).toHaveBeenLastCalledWith(200);
   });
+
+  it("uses the default limit for null and undefined limits", async () => {
+    mocks.state.selectMovementsRows = [];
+    await getMovements({
+      from: new Date("2026-05-01"),
+      to: new Date("2026-05-13"),
+      limit: undefined,
+    });
+    expect(mocks.spies.limitFn).toHaveBeenLastCalledWith(200);
+
+    await getMovements({
+      from: new Date("2026-05-01"),
+      to: new Date("2026-05-13"),
+      limit: null as unknown as number,
+    });
+    expect(mocks.spies.limitFn).toHaveBeenLastCalledWith(200);
+  });
 });
 
 describe("StockLedgerError shape", () => {

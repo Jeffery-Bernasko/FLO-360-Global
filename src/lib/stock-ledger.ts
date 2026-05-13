@@ -171,7 +171,7 @@ export async function getMovements(
   ) {
     throw new StockLedgerError(
       "invalid_range",
-      "`from` must be before or equal to `to`.",
+      "`from` and `to` must be valid dates, and `from` must be before or equal to `to`.",
     );
   }
   const requestedLimit =
