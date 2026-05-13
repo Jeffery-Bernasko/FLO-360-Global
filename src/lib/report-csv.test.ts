@@ -60,4 +60,21 @@ describe("report CSV serializers", () => {
     expect(csv).toContain('"Global Supply"');
     expect(csv).toContain('"240"');
   });
+
+  it("neutralizes spreadsheet formulas in exported cells", () => {
+    const csv = perCustomerCsv([
+      {
+        customerId: "customer-2",
+        customerName: "=cmd|' /C calc'!A0",
+        customerLocation: "@danger",
+        totalBoxes: 1,
+        totalPesewas: 100,
+        dispatchCount: 1,
+        lastDispatchAt: new Date("2026-05-12T12:00:00.000Z"),
+      },
+    ]);
+
+    expect(csv).toContain("\"'=cmd|' /C calc'!A0\"");
+    expect(csv).toContain("\"'@danger\"");
+  });
 });

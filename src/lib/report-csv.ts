@@ -10,7 +10,8 @@ type CsvCell = string | number | null | undefined;
 
 function quoteCell(value: CsvCell): string {
   const text = value == null ? "" : String(value);
-  return `"${text.replace(/"/g, '""')}"`;
+  const safeText = /^[=+\-@]/.test(text) ? `'${text}` : text;
+  return `"${safeText.replace(/"/g, '""')}"`;
 }
 
 function toCsv(headers: string[], rows: CsvCell[][]): string {
