@@ -5,11 +5,15 @@ const mocks = vi.hoisted(() => {
   const state: {
     selectRows: unknown[];
     insertReturning: unknown[];
+    insertError: unknown | null;
     updateReturning: unknown[];
+    orderByArgs: unknown[] | null;
   } = {
     selectRows: [],
     insertReturning: [{ id: "new-user-id" }],
+    insertError: null,
     updateReturning: [{ id: "target-user-id" }],
+    orderByArgs: null,
   };
 
   const select = vi.fn(() => ({
@@ -17,13 +21,19 @@ const mocks = vi.hoisted(() => {
       where: vi.fn(() => ({
         limit: vi.fn(async () => state.selectRows),
       })),
-      orderBy: vi.fn(async () => state.selectRows),
+      orderBy: vi.fn(async (...args: unknown[]) => {
+        state.orderByArgs = args;
+        return state.selectRows;
+      }),
     })),
   }));
 
   const insert = vi.fn(() => ({
     values: vi.fn(() => ({
-      returning: vi.fn(async () => state.insertReturning),
+      returning: vi.fn(async () => {
+        if (state.insertError) throw state.insertError;
+        return state.insertReturning;
+      }),
     })),
   }));
 
@@ -35,9 +45,18 @@ const mocks = vi.hoisted(() => {
     })),
   }));
 
+  const db = {
+    select,
+    insert,
+    update,
+    transaction: vi.fn(async (callback: (tx: unknown) => unknown) =>
+      callback(db),
+    ),
+  };
+
   return {
     state,
-    db: { select, insert, update },
+    db,
     log: vi.fn().mockResolvedValue(undefined),
   };
 });
@@ -49,6 +68,7 @@ import {
   UserError,
   createWorker,
   deactivateUser,
+  listUsers,
   reactivateUser,
   resetUserPassword,
 } from "./users";
@@ -59,8 +79,11 @@ const worker = { id: "wkr-1", role: "worker" as const };
 beforeEach(() => {
   mocks.state.selectRows = [];
   mocks.state.insertReturning = [{ id: "new-user-id" }];
+  mocks.state.insertError = null;
   mocks.state.updateReturning = [{ id: "target-user-id" }];
+  mocks.state.orderByArgs = null;
   mocks.log.mockClear();
+  mocks.db.transaction.mockClear();
 });
 
 afterEach(() => {
@@ -106,6 +129,7 @@ describe("createWorker", () => {
     expect(result.userId).toBe("new-user-id");
     expect(result.email).toBe("k@x.com");
     expect(result.tempPassword.length).toBeGreaterThanOrEqual(10);
+    expect(mocks.db.transaction).toHaveBeenCalledOnce();
     expect(mocks.log).toHaveBeenCalledOnce();
     expect(mocks.log).toHaveBeenCalledWith({
       actorUserId: manager.id,
@@ -113,7 +137,15 @@ describe("createWorker", () => {
       entityType: "user",
       entityId: "new-user-id",
       payload: { email: "k@x.com", name: "Kojo", role: "worker" },
-    });
+    }, expect.anything());
+  });
+
+  it("maps DB unique-constraint races to duplicate_email", async () => {
+    mocks.state.insertError = { code: "23505" };
+
+    await expect(
+      createWorker({ actor: manager, name: "Kojo", email: "k@x.com" }),
+    ).rejects.toMatchObject({ code: "duplicate_email" });
   });
 });
 
@@ -141,6 +173,7 @@ describe("deactivateUser", () => {
   it("logs on success", async () => {
     mocks.state.updateReturning = [{ id: "target-user-id" }];
     await deactivateUser({ actor: manager, targetUserId: "target-user-id" });
+    expect(mocks.db.transaction).toHaveBeenCalledOnce();
     expect(mocks.log).toHaveBeenCalledOnce();
     expect(mocks.log).toHaveBeenCalledWith({
       actorUserId: manager.id,
@@ -148,7 +181,7 @@ describe("deactivateUser", () => {
       entityType: "user",
       entityId: "target-user-id",
       payload: {},
-    });
+    }, expect.anything());
   });
 });
 
@@ -162,8 +195,10 @@ describe("reactivateUser", () => {
   it("logs on success", async () => {
     mocks.state.updateReturning = [{ id: "target-user-id" }];
     await reactivateUser({ actor: manager, targetUserId: "target-user-id" });
+    expect(mocks.db.transaction).toHaveBeenCalledOnce();
     expect(mocks.log).toHaveBeenCalledWith(
       expect.objectContaining({ action: "user.reactivate" }),
+      expect.anything(),
     );
   });
 });
@@ -183,8 +218,10 @@ describe("resetUserPassword", () => {
     });
     expect(result.userId).toBe("target-user-id");
     expect(result.tempPassword.length).toBeGreaterThanOrEqual(10);
+    expect(mocks.db.transaction).toHaveBeenCalledOnce();
     expect(mocks.log).toHaveBeenCalledWith(
       expect.objectContaining({ action: "user.password_reset" }),
+      expect.anything(),
     );
   });
 
@@ -193,5 +230,32 @@ describe("resetUserPassword", () => {
     await expect(
       resetUserPassword({ actor: manager, targetUserId: "ghost" }),
     ).rejects.toMatchObject({ code: "not_found" });
+  });
+});
+
+describe("listUsers", () => {
+  it("rejects when called by a worker", async () => {
+    await expect(listUsers(worker)).rejects.toMatchObject({ code: "forbidden" });
+  });
+
+  it("returns users ordered by active then name", async () => {
+    mocks.state.selectRows = [
+      { id: "1", name: "Ama", isActive: true },
+      { id: "2", name: "Kojo", isActive: false },
+    ];
+
+    const result = await listUsers(manager);
+
+    expect(result).toEqual(mocks.state.selectRows);
+    expect(mocks.db.select).toHaveBeenCalledOnce();
+    expect(mocks.db.select.mock.calls[0][0]).toMatchObject({
+      id: expect.anything(),
+      email: expect.anything(),
+      name: expect.anything(),
+      role: expect.anything(),
+      isActive: expect.anything(),
+      createdAt: expect.anything(),
+    });
+    expect(mocks.state.orderByArgs).toHaveLength(2);
   });
 });

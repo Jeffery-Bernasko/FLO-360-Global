@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { forbidden, unauthorized } from "next/navigation";
 import { requireManager } from "@/auth-server";
+import { ForbiddenError, UnauthorizedError } from "@/auth-helpers";
 import { TopNav } from "@/components/top-nav";
 import { listUsers } from "@/lib/users";
 import {
@@ -9,7 +11,14 @@ import {
 import { ResetPasswordButton } from "./reset-password-button";
 
 export default async function UsersPage() {
-  const me = await requireManager();
+  let me: Awaited<ReturnType<typeof requireManager>>;
+  try {
+    me = await requireManager();
+  } catch (err) {
+    if (err instanceof UnauthorizedError) unauthorized();
+    if (err instanceof ForbiddenError) forbidden();
+    throw err;
+  }
   const all = await listUsers(me);
 
   const active = all.filter((u) => u.isActive);

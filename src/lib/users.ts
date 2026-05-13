@@ -21,6 +21,15 @@ function assertManager(actor: Actor) {
   }
 }
 
+function isUniqueViolationError(err: unknown): boolean {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    "code" in err &&
+    (err as { code?: string }).code === "23505"
+  );
+}
+
 export type CreateWorkerInput = {
   actor: Actor;
   name: string;
@@ -67,26 +76,44 @@ export async function createWorker(
   const tempPassword = generateTempPassword();
   const passwordHash = await hashPassword(tempPassword);
 
-  const [created] = await db
-    .insert(users)
-    .values({
-      email,
-      name,
-      passwordHash,
-      role: "worker",
-      isActive: true,
-    })
-    .returning({ id: users.id });
+  let createdId = "";
+  try {
+    await db.transaction(async (tx) => {
+      const [created] = await tx
+        .insert(users)
+        .values({
+          email,
+          name,
+          passwordHash,
+          role: "worker",
+          isActive: true,
+        })
+        .returning({ id: users.id });
 
-  await log({
-    actorUserId: input.actor.id,
-    action: "user.create",
-    entityType: "user",
-    entityId: created.id,
-    payload: { email, name, role: "worker" },
-  });
+      createdId = created.id;
 
-  return { userId: created.id, email, tempPassword };
+      await log(
+        {
+          actorUserId: input.actor.id,
+          action: "user.create",
+          entityType: "user",
+          entityId: created.id,
+          payload: { email, name, role: "worker" },
+        },
+        tx,
+      );
+    });
+  } catch (err) {
+    if (isUniqueViolationError(err)) {
+      throw new UserError(
+        "duplicate_email",
+        "A user with that email already exists.",
+      );
+    }
+    throw err;
+  }
+
+  return { userId: createdId, email, tempPassword };
 }
 
 export type SetActiveInput = {
@@ -104,50 +131,60 @@ export async function deactivateUser(input: SetActiveInput): Promise<void> {
     );
   }
 
-  const result = await db
-    .update(users)
-    .set({ isActive: false })
-    .where(and(eq(users.id, input.targetUserId), eq(users.isActive, true)))
-    .returning({ id: users.id });
+  await db.transaction(async (tx) => {
+    const result = await tx
+      .update(users)
+      .set({ isActive: false })
+      .where(and(eq(users.id, input.targetUserId), eq(users.isActive, true)))
+      .returning({ id: users.id });
 
-  if (result.length === 0) {
-    throw new UserError(
-      "not_found_or_already_inactive",
-      "User not found or already inactive.",
+    if (result.length === 0) {
+      throw new UserError(
+        "not_found_or_already_inactive",
+        "User not found or already inactive.",
+      );
+    }
+
+    await log(
+      {
+        actorUserId: input.actor.id,
+        action: "user.deactivate",
+        entityType: "user",
+        entityId: input.targetUserId,
+        payload: {},
+      },
+      tx,
     );
-  }
-
-  await log({
-    actorUserId: input.actor.id,
-    action: "user.deactivate",
-    entityType: "user",
-    entityId: input.targetUserId,
-    payload: {},
   });
 }
 
 export async function reactivateUser(input: SetActiveInput): Promise<void> {
   assertManager(input.actor);
 
-  const result = await db
-    .update(users)
-    .set({ isActive: true })
-    .where(and(eq(users.id, input.targetUserId), eq(users.isActive, false)))
-    .returning({ id: users.id });
+  await db.transaction(async (tx) => {
+    const result = await tx
+      .update(users)
+      .set({ isActive: true })
+      .where(and(eq(users.id, input.targetUserId), eq(users.isActive, false)))
+      .returning({ id: users.id });
 
-  if (result.length === 0) {
-    throw new UserError(
-      "not_found_or_already_active",
-      "User not found or already active.",
+    if (result.length === 0) {
+      throw new UserError(
+        "not_found_or_already_active",
+        "User not found or already active.",
+      );
+    }
+
+    await log(
+      {
+        actorUserId: input.actor.id,
+        action: "user.reactivate",
+        entityType: "user",
+        entityId: input.targetUserId,
+        payload: {},
+      },
+      tx,
     );
-  }
-
-  await log({
-    actorUserId: input.actor.id,
-    action: "user.reactivate",
-    entityType: "user",
-    entityId: input.targetUserId,
-    payload: {},
   });
 }
 
@@ -164,22 +201,27 @@ export async function resetUserPassword(
   const tempPassword = generateTempPassword();
   const passwordHash = await hashPassword(tempPassword);
 
-  const result = await db
-    .update(users)
-    .set({ passwordHash })
-    .where(eq(users.id, input.targetUserId))
-    .returning({ id: users.id });
+  await db.transaction(async (tx) => {
+    const result = await tx
+      .update(users)
+      .set({ passwordHash })
+      .where(eq(users.id, input.targetUserId))
+      .returning({ id: users.id });
 
-  if (result.length === 0) {
-    throw new UserError("not_found", "User not found.");
-  }
+    if (result.length === 0) {
+      throw new UserError("not_found", "User not found.");
+    }
 
-  await log({
-    actorUserId: input.actor.id,
-    action: "user.password_reset",
-    entityType: "user",
-    entityId: input.targetUserId,
-    payload: {},
+    await log(
+      {
+        actorUserId: input.actor.id,
+        action: "user.password_reset",
+        entityType: "user",
+        entityId: input.targetUserId,
+        payload: {},
+      },
+      tx,
+    );
   });
 
   return { userId: input.targetUserId, tempPassword };

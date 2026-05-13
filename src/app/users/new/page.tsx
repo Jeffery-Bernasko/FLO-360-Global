@@ -1,9 +1,18 @@
+import { forbidden, unauthorized } from "next/navigation";
 import { requireManager } from "@/auth-server";
+import { ForbiddenError, UnauthorizedError } from "@/auth-helpers";
 import { TopNav } from "@/components/top-nav";
 import { NewWorkerForm } from "./new-worker-form";
 
 export default async function NewUserPage() {
-  const me = await requireManager();
+  let me: Awaited<ReturnType<typeof requireManager>>;
+  try {
+    me = await requireManager();
+  } catch (err) {
+    if (err instanceof UnauthorizedError) unauthorized();
+    if (err instanceof ForbiddenError) forbidden();
+    throw err;
+  }
 
   return (
     <>

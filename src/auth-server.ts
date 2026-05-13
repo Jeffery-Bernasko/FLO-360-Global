@@ -41,5 +41,25 @@ export async function requireUser(): Promise<AuthenticatedUser> {
  */
 export async function requireManager(): Promise<AuthenticatedUser> {
   const session = await auth();
-  return requireManagerFromSession(session);
+  const sessionUser = requireManagerFromSession(session);
+  const dbUser = await db.query.users.findFirst({
+    where: eq(users.id, sessionUser.id),
+    columns: {
+      email: true,
+      name: true,
+      role: true,
+      isActive: true,
+    },
+  });
+  if (!dbUser) throw new UnauthorizedError();
+  if (!dbUser.isActive) throw new UnauthorizedError();
+  if (dbUser.role !== "manager") {
+    throw new UnauthorizedError();
+  }
+  return {
+    ...sessionUser,
+    email: dbUser.email,
+    name: dbUser.name,
+    role: dbUser.role,
+  };
 }

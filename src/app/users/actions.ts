@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireManager } from "@/auth-server";
+import { ForbiddenError, UnauthorizedError } from "@/auth-helpers";
 import {
   createWorker as createWorkerCore,
   deactivateUser as deactivateUserCore,
@@ -16,6 +17,12 @@ export type ActionResult<T> =
   | { ok: false; error: string };
 
 function toResult<T>(err: unknown): ActionResult<T> {
+  if (err instanceof UnauthorizedError) {
+    return { ok: false, error: "You must be signed in to continue." };
+  }
+  if (err instanceof ForbiddenError) {
+    return { ok: false, error: "Only managers can manage users." };
+  }
   if (err instanceof UserError) return { ok: false, error: err.message };
   console.error(err);
   return { ok: false, error: "Something went wrong. Please try again." };
@@ -42,22 +49,34 @@ export async function createWorkerAction(
   }
 }
 
-export async function deactivateUserAction(formData: FormData): Promise<void> {
-  const actor = await requireManager();
-  await deactivateUserCore({
-    actor,
-    targetUserId: String(formData.get("userId") ?? ""),
-  });
-  revalidatePath("/users");
+export async function deactivateUserAction(
+  formData: FormData,
+): Promise<void> {
+  try {
+    const actor = await requireManager();
+    await deactivateUserCore({
+      actor,
+      targetUserId: String(formData.get("userId") ?? ""),
+    });
+    revalidatePath("/users");
+  } catch (err) {
+    toResult<null>(err);
+  }
 }
 
-export async function reactivateUserAction(formData: FormData): Promise<void> {
-  const actor = await requireManager();
-  await reactivateUserCore({
-    actor,
-    targetUserId: String(formData.get("userId") ?? ""),
-  });
-  revalidatePath("/users");
+export async function reactivateUserAction(
+  formData: FormData,
+): Promise<void> {
+  try {
+    const actor = await requireManager();
+    await reactivateUserCore({
+      actor,
+      targetUserId: String(formData.get("userId") ?? ""),
+    });
+    revalidatePath("/users");
+  } catch (err) {
+    toResult<null>(err);
+  }
 }
 
 export async function resetUserPasswordAction(
