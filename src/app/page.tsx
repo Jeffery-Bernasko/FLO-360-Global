@@ -63,7 +63,7 @@ async function ManagerDashboard() {
             value="0"
             variant="success"
             subtitle="All caught up"
-            href="/approvals/inbound"
+            href="/approvals"
           />
         ) : (
           <MetricCard
@@ -71,7 +71,7 @@ async function ManagerDashboard() {
             value={pending.total}
             variant="warning"
             subtitle={`${pending.inbound} inbound, ${pending.outbound} outbound`}
-            href={pending.outbound > pending.inbound ? "/approvals/outbound" : "/approvals/inbound"}
+            href="/approvals"
           />
         )}
 
@@ -80,13 +80,13 @@ async function ManagerDashboard() {
             <MetricCard
               label="Inbound"
               value={pending.inbound}
-              href="/approvals/inbound"
+              href="/approvals"
               variant={pending.inbound > 0 ? "warning" : "default"}
             />
             <MetricCard
               label="Outbound"
               value={pending.outbound}
-              href="/approvals/outbound"
+              href="/approvals"
               variant={pending.outbound > 0 ? "warning" : "default"}
             />
           </div>

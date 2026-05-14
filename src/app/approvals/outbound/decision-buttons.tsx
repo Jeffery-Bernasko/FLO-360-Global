@@ -33,7 +33,7 @@ export function OutboundDecisionButtons({
   >(rejectOutboundAction, null);
 
   if (approveState?.ok || rejectState?.ok) {
-    setTimeout(() => router.push("/approvals/outbound"), 0);
+    setTimeout(() => router.push("/approvals"), 0);
   }
 
   return (

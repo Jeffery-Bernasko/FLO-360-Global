@@ -83,7 +83,7 @@ export default async function ApproveInboundDetailPage({ params }: PageProps) {
         )}
 
         <div className="mt-6">
-          <LinkButton href="/approvals/inbound" variant="secondary" size="lg" className="w-full">
+          <LinkButton href="/approvals" variant="secondary" size="lg" className="w-full">
             Back to inbox
           </LinkButton>
         </div>

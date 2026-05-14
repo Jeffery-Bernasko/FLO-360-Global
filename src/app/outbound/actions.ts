@@ -50,6 +50,7 @@ export async function submitOutboundAction(
 
     revalidatePath("/");
     revalidatePath("/outbound");
+    revalidatePath("/approvals");
     revalidatePath("/approvals/outbound");
     return { ok: true, data: { id: String(created.id) } };
   } catch (err) {
@@ -80,6 +81,7 @@ export async function editAndResubmitOutboundAction(
     revalidatePath("/");
     revalidatePath("/outbound");
     revalidatePath(`/outbound/${formId}`);
+    revalidatePath("/approvals");
     revalidatePath("/approvals/outbound");
     return { ok: true, data: { id: String(updated.id) } };
   } catch (err) {

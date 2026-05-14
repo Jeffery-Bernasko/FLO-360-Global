@@ -53,8 +53,7 @@ const WORKER_NAV: NavItemData[] = [
 
 const MANAGER_NAV: NavItemData[] = [
   { href: "/", label: "Dashboard", iconName: "home" },
-  { href: "/approvals/inbound", label: "Inbox: Inbound", iconName: "inbox" },
-  { href: "/approvals/outbound", label: "Inbox: Outbound", iconName: "inbox" },
+  { href: "/approvals", label: "Inbox", iconName: "inbox" },
   { href: "/inbound", label: "Inbound", iconName: "inbound" },
   { href: "/outbound", label: "Outbound", iconName: "outbound" },
   { href: "/customers", label: "Customers", iconName: "customers" },

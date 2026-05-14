@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import { auth, signIn } from "@/auth";
 import { AuthError } from "next-auth";
-import { IconBox } from "@/components/icons";
+import { IconBox, IconMail } from "@/components/icons";
+import { PasswordField } from "./password-field";
 
 type SearchParams = Promise<{ error?: string; from?: string }>;
 
@@ -122,31 +123,26 @@ export default async function SignInPage({
               <label htmlFor="sign-in-email" className="mb-1.5 block text-sm font-medium text-zinc-700">
                 Email
               </label>
-              <input
-                id="sign-in-email"
-                type="email"
-                name="email"
-                autoComplete="email"
-                required
-                placeholder="you@company.com"
-                className="block w-full rounded-xl border border-surface-border-strong/80 bg-white px-4 py-3 text-sm text-zinc-900 shadow-sm transition-all placeholder:text-zinc-400 hover:border-zinc-300 hover:shadow-md focus-ring"
-              />
+              <div className="relative">
+                <IconMail
+                  width={16}
+                  height={16}
+                  aria-hidden="true"
+                  className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500"
+                />
+                <input
+                  id="sign-in-email"
+                  type="email"
+                  name="email"
+                  autoComplete="email"
+                  required
+                  placeholder="you@company.com"
+                  className="block w-full rounded-xl border border-surface-border-strong/80 bg-white px-4 py-3 pl-11 text-sm text-zinc-900 shadow-sm transition-all placeholder:text-zinc-400 hover:border-zinc-300 hover:shadow-md focus-ring"
+                />
+              </div>
             </div>
 
-            <div className="sign-in-stagger-4">
-              <label htmlFor="sign-in-password" className="mb-1.5 block text-sm font-medium text-zinc-700">
-                Password
-              </label>
-              <input
-                id="sign-in-password"
-                type="password"
-                name="password"
-                autoComplete="current-password"
-                required
-                placeholder="Enter your password"
-                className="block w-full rounded-xl border border-surface-border-strong/80 bg-white px-4 py-3 text-sm text-zinc-900 shadow-sm transition-all placeholder:text-zinc-400 hover:border-zinc-300 hover:shadow-md focus-ring"
-              />
-            </div>
+            <PasswordField />
 
             <div className="sign-in-stagger-5 pt-2">
               <button

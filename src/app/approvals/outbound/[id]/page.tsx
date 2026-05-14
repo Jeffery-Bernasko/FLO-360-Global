@@ -105,7 +105,7 @@ export default async function ApproveOutboundDetailPage({ params }: PageProps) {
         )}
 
         <div className="mt-6">
-          <LinkButton href="/approvals/outbound" variant="secondary" size="lg" className="w-full">
+          <LinkButton href="/approvals" variant="secondary" size="lg" className="w-full">
             Back to inbox
           </LinkButton>
         </div>

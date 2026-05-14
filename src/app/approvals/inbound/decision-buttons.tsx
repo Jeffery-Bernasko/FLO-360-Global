@@ -27,7 +27,7 @@ export function DecisionButtons({ formId }: { formId: string }) {
   >(rejectInboundAction, null);
 
   if (approveState?.ok || rejectState?.ok) {
-    setTimeout(() => router.push("/approvals/inbound"), 0);
+    setTimeout(() => router.push("/approvals"), 0);
   }
 
   return (

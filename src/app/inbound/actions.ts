@@ -52,6 +52,7 @@ export async function submitInboundAction(
 
     revalidatePath("/");
     revalidatePath("/inbound");
+    revalidatePath("/approvals");
     revalidatePath("/approvals/inbound");
     return { ok: true, data: { id: String(created.id) } };
   } catch (err) {
@@ -85,6 +86,7 @@ export async function editAndResubmitInboundAction(
     revalidatePath("/");
     revalidatePath("/inbound");
     revalidatePath(`/inbound/${formId}`);
+    revalidatePath("/approvals");
     revalidatePath("/approvals/inbound");
     return { ok: true, data: { id: String(updated.id) } };
   } catch (err) {

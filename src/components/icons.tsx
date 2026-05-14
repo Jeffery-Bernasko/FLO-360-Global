@@ -48,3 +48,15 @@ export function IconDownload(props: React.SVGProps<SVGSVGElement>) {
 export function IconFile(props: React.SVGProps<SVGSVGElement>) {
   return <svg {...s} {...props}><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" /><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" /></svg>;
 }
+export function IconMail(props: React.SVGProps<SVGSVGElement>) {
+  return <svg {...s} {...props}><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M3 7l9 6 9-6" /></svg>;
+}
+export function IconLock(props: React.SVGProps<SVGSVGElement>) {
+  return <svg {...s} {...props}><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V7a4 4 0 018 0v4" /></svg>;
+}
+export function IconEye(props: React.SVGProps<SVGSVGElement>) {
+  return <svg {...s} {...props}><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></svg>;
+}
+export function IconEyeOff(props: React.SVGProps<SVGSVGElement>) {
+  return <svg {...s} {...props}><path d="M3 3l18 18" /><path d="M10.58 10.58A2 2 0 0012 14a2 2 0 001.42-.58" /><path d="M9.88 4.24A9.6 9.6 0 0112 4c6.5 0 10 8 10 8a18.5 18.5 0 01-2.64 3.88" /><path d="M6.61 6.61C3.63 8.61 2 12 2 12s3.5 8 10 8a9.5 9.5 0 005.39-1.61" /></svg>;
+}

@@ -5,6 +5,7 @@ import { ForbiddenError, UnauthorizedError } from "@/auth-helpers";
 import { AppShell } from "@/components/app-shell";
 import { PageHeader } from "@/components/ui/page-header";
 import { MetricCard } from "@/components/ui/metric-card";
+import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { IconBox, IconChevron, IconInbound, IconOutbound } from "@/components/icons";
@@ -92,80 +93,75 @@ export default async function InboxPage() {
           description="No forms are waiting for your approval."
         />
       ) : (
-        <div className="overflow-x-auto rounded-xl bg-white ring-1 ring-surface-border">
-          <table className="min-w-full divide-y divide-surface-border text-sm">
-            <thead>
-              <tr className="bg-zinc-50/60">
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">
-                  Type
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">
-                  Party
-                </th>
-                <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-zinc-500">
-                  Boxes
-                </th>
-                <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-zinc-500 hidden sm:table-cell">
-                  Total
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500 hidden sm:table-cell">
-                  Date
-                </th>
-                <th className="px-4 py-3 w-8">
-                  <span className="sr-only">Review</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-surface-border/60">
-              {items.map((item) => {
-                const href = `/approvals/${item.kind}/${item.id}`;
-                const insufficient = item.kind === "outbound" && item.boxes > currentStock;
-                return (
-                  <tr key={`${item.kind}-${item.id}`} className="transition-colors hover:bg-teal-50/30">
-                    <td className="px-4 py-3">
-                      <Badge variant={item.kind === "inbound" ? "info" : "pending"}>
-                        {item.kind === "inbound" ? (
-                          <span className="flex items-center gap-1.5">
-                            <IconInbound width={12} height={12} />
-                            Inbound
-                          </span>
-                        ) : (
-                          <span className="flex items-center gap-1.5">
-                            <IconOutbound width={12} height={12} />
-                            Outbound
-                          </span>
-                        )}
+        <div className="grid gap-4 md:grid-cols-2">
+          {items.map((item) => {
+            const href = `/approvals/${item.kind}/${item.id}`;
+            const isInbound = item.kind === "inbound";
+            const insufficient = item.kind === "outbound" && item.boxes > currentStock;
+            const Icon = isInbound ? IconInbound : IconOutbound;
+
+            return (
+              <Card
+                key={`${item.kind}-${item.id}`}
+                className="transition-colors hover:bg-teal-50/30"
+              >
+                <div className="mb-4 flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="mb-2 flex items-center gap-2">
+                      <Badge variant={isInbound ? "info" : "pending"}>
+                        <span className="flex items-center gap-1.5">
+                          <Icon width={12} height={12} />
+                          {isInbound ? "Incoming Approval" : "Outgoing Approval"}
+                        </span>
                       </Badge>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <Link href={href} className="font-medium text-zinc-900 hover:text-teal-700">
-                          {item.party}
-                        </Link>
-                        {insufficient && <Badge variant="danger">Low stock</Badge>}
-                      </div>
-                    </td>
-                    <td className={`px-4 py-3 text-right font-mono ${insufficient ? "text-rose-600 font-medium" : "text-zinc-700"}`}>
+                      {insufficient ? <Badge variant="danger">Low stock</Badge> : null}
+                    </div>
+                    <Link
+                      href={href}
+                      className="block truncate text-base font-semibold text-zinc-900 hover:text-teal-700"
+                    >
+                      {item.party}
+                    </Link>
+                    <p className="mt-1 text-xs text-zinc-500">
+                      {isInbound ? "Inbound" : "Outbound"} #{item.id}
+                    </p>
+                  </div>
+                  <Link
+                    href={href}
+                    className="rounded-lg p-1 text-zinc-400 transition-colors hover:bg-white hover:text-teal-600"
+                    aria-label={`Review ${isInbound ? "incoming" : "outgoing"} approval #${item.id}`}
+                  >
+                    <IconChevron width={16} height={16} />
+                  </Link>
+                </div>
+
+                <dl className="grid grid-cols-3 gap-3 text-sm">
+                  <div>
+                    <dt className="text-xs font-medium uppercase tracking-wider text-zinc-400">
+                      Boxes
+                    </dt>
+                    <dd className={`mt-1 font-mono ${insufficient ? "font-medium text-rose-600" : "text-zinc-800"}`}>
                       {item.boxes}
-                    </td>
-                    <td className="px-4 py-3 text-right font-mono text-zinc-700 hidden sm:table-cell">
-                      {item.kind === "outbound" ? formatGhs(item.total) : (
-                        <span className="text-zinc-400">&mdash;</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-zinc-500 hidden sm:table-cell">
-                      {item.date}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Link href={href} className="text-zinc-400 hover:text-teal-600" aria-label="Review">
-                        <IconChevron width={16} height={16} />
-                      </Link>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs font-medium uppercase tracking-wider text-zinc-400">
+                      Total
+                    </dt>
+                    <dd className="mt-1 font-mono text-zinc-800">
+                      {isInbound ? <span className="text-zinc-400">-</span> : formatGhs(item.total)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs font-medium uppercase tracking-wider text-zinc-400">
+                      Date
+                    </dt>
+                    <dd className="mt-1 text-zinc-600">{item.date}</dd>
+                  </div>
+                </dl>
+              </Card>
+            );
+          })}
         </div>
       )}
     </AppShell>
