@@ -323,45 +323,42 @@ export async function approveOutbound(input: ApproveOutboundInput): Promise<Outb
       tx,
     );
 
-    // Render the PDF inside the transaction. If rendering or upload fails
+    // Render the PDF only when Blob storage is configured. If rendering or upload fails
     // the whole tx rolls back — no stock movement, no claimed invoice
     // number visible on a form (the sequence may still have advanced, which
-    // is acceptable).
-    const invoiceData: InvoiceData = {
-      invoiceNumber,
-      date: decidedAt,
-      warehouseName,
-      warehouseContact,
-      customer: {
-        name: customer.name,
-        phone: customer.phone,
-        location: customer.location,
-      },
-      lineItem: {
-        description: "Sanitary product, 24 pcs/box",
-        boxes: existing.boxes,
-        unitPricePesewas: existing.unitPricePesewas,
-        totalPesewas: existing.boxes * existing.unitPricePesewas,
-      },
-    };
-
-    const pdfBuffer = await renderInvoicePdfBuffer(invoiceData);
-    const pdfKey = `invoices/${decidedAt.getFullYear()}/${invoiceNumber}.pdf`;
-
+    // is acceptable). Without Blob, approval still succeeds and the PDF is skipped.
     const token = process.env.BLOB_READ_WRITE_TOKEN;
-    if (!token) {
-      throw new OutboundFormError(
-        "blob_not_configured",
-        "Blob storage is not configured. Set BLOB_READ_WRITE_TOKEN to enable invoice PDFs.",
-      );
-    }
+    let pdfKey: string | null = null;
 
-    await put(pdfKey, pdfBuffer, {
-      access: "public",
-      contentType: "application/pdf",
-      token,
-      addRandomSuffix: false,
-    });
+    if (token) {
+      const invoiceData: InvoiceData = {
+        invoiceNumber,
+        date: decidedAt,
+        warehouseName,
+        warehouseContact,
+        customer: {
+          name: customer.name,
+          phone: customer.phone,
+          location: customer.location,
+        },
+        lineItem: {
+          description: "Sanitary product, 24 pcs/box",
+          boxes: existing.boxes,
+          unitPricePesewas: existing.unitPricePesewas,
+          totalPesewas: existing.boxes * existing.unitPricePesewas,
+        },
+      };
+
+      const pdfBuffer = await renderInvoicePdfBuffer(invoiceData);
+      pdfKey = `invoices/${decidedAt.getFullYear()}/${invoiceNumber}.pdf`;
+
+      await put(pdfKey, pdfBuffer, {
+        access: "public",
+        contentType: "application/pdf",
+        token,
+        addRandomSuffix: false,
+      });
+    }
 
     const [updated] = await tx
       .update(outboundForms)

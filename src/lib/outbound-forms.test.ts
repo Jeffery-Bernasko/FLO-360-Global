@@ -300,7 +300,7 @@ describe("approveOutbound", () => {
     expect(mocks.put).not.toHaveBeenCalled();
   });
 
-  it("rejects when blob is not configured", async () => {
+  it("approves without an invoice PDF when blob is not configured", async () => {
     delete process.env.BLOB_READ_WRITE_TOKEN;
     mocks.state.formForUpdate = [
       {
@@ -315,10 +315,21 @@ describe("approveOutbound", () => {
       { id: "c-1", name: "Aba", phone: null, location: null },
     ];
     mocks.state.stockSumRows = [{ total: "1000" }];
+    mocks.state.updateReturning = [
+      {
+        id: 1n,
+        status: "approved",
+        invoiceNumber: 1n,
+        invoicePdfKey: null,
+      },
+    ];
 
-    await expect(
-      approveOutbound({ actor: manager, formId: 1n }),
-    ).rejects.toMatchObject({ code: "blob_not_configured" });
+    const updated = await approveOutbound({ actor: manager, formId: 1n });
+
+    expect(updated.status).toBe("approved");
+    expect(mocks.recordMovement).toHaveBeenCalledOnce();
+    expect(mocks.renderInvoicePdfBuffer).not.toHaveBeenCalled();
+    expect(mocks.put).not.toHaveBeenCalled();
   });
 
   it("happy path: deducts stock, claims invoice, renders PDF, uploads, and audits", async () => {
