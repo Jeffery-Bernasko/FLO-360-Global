@@ -52,9 +52,9 @@ export default async function OutboundListPage() {
             </thead>
             <tbody className="divide-y divide-surface-border/60">
               {forms.map((f) => (
-                <tr key={String(f.id)} className="transition-colors hover:bg-teal-50/30">
+                <tr key={String(f.id)} className="transition-colors hover:bg-emerald-50/30">
                   <td className="px-4 py-3">
-                    <Link href={`/outbound/${f.id}`} className="font-medium text-zinc-900 hover:text-teal-700">
+                    <Link href={`/outbound/${f.id}`} className="font-medium text-zinc-900 hover:text-green-800">
                       {f.customerName}
                     </Link>
                   </td>
@@ -65,7 +65,7 @@ export default async function OutboundListPage() {
                   </td>
                   <td className="px-4 py-3 text-zinc-500">{f.dispatchDate}</td>
                   <td className="px-4 py-3">
-                    <Link href={`/outbound/${f.id}`} className="text-zinc-400 hover:text-teal-600" aria-label={`View outbound #${f.id}`}>
+                    <Link href={`/outbound/${f.id}`} className="text-zinc-400 hover:text-green-700" aria-label={`View outbound #${f.id}`}>
                       <IconChevron width={16} height={16} />
                     </Link>
                   </td>

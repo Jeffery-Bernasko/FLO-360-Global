@@ -38,7 +38,7 @@
   }
 
   .focus-ring {
-    @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-2;
+    @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-green-light focus-visible:ring-offset-2;
   }
 
   @keyframes shimmer {
@@ -83,10 +83,10 @@
 
   .sign-in-grid {
     background-image:
-      linear-gradient(rgba(0,0,0,.045) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(0,0,0,.045) 1px, transparent 1px),
-      linear-gradient(rgba(0,0,0,.018) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(0,0,0,.018) 1px, transparent 1px);
+      linear-gradient(rgba(27,107,58,.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(27,107,58,.06) 1px, transparent 1px),
+      linear-gradient(rgba(27,107,58,.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(27,107,58,.025) 1px, transparent 1px);
     background-size: 80px 80px, 80px 80px, 16px 16px, 16px 16px;
   }
 

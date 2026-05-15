@@ -137,7 +137,7 @@ export function PartyPicker({
                   <button
                     type="button"
                     onClick={() => pick(opt)}
-                    className="block w-full px-3 py-2.5 text-left transition-colors hover:bg-teal-50/50"
+                    className="block w-full px-3 py-2.5 text-left transition-colors hover:bg-emerald-50/50"
                   >
                     <p className="text-sm font-medium text-zinc-900">{opt.name}</p>
                     {opt.hint ? (

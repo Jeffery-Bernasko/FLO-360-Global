@@ -55,7 +55,7 @@ export function DataTable<T>({
               key={rowKey(row)}
               className={
                 onRowClick
-                  ? "cursor-pointer transition-colors hover:bg-teal-50/40"
+                  ? "cursor-pointer transition-colors hover:bg-emerald-50/40"
                   : "transition-colors hover:bg-zinc-50/50"
               }
               onClick={onRowClick ? () => onRowClick(row) : undefined}

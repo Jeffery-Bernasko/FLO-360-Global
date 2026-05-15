@@ -5,7 +5,7 @@ type Size = "sm" | "md" | "lg";
 
 const variantStyles: Record<Variant, string> = {
   primary:
-    "bg-teal-700 text-white shadow-sm hover:bg-teal-800 active:bg-teal-900 disabled:opacity-50",
+    "bg-green-800 text-white shadow-sm hover:bg-green-900 active:bg-green-950 disabled:opacity-50",
   secondary:
     "bg-white text-zinc-700 shadow-sm ring-1 ring-surface-border hover:bg-zinc-50 active:bg-zinc-100 disabled:opacity-50",
   danger:

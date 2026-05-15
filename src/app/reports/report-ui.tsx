@@ -33,7 +33,7 @@ export function ReportTabs() {
         <Link
           key={link.href}
           href={link.href}
-          className="rounded-lg bg-white px-3.5 py-2 text-sm font-medium text-zinc-600 ring-1 ring-surface-border transition-colors hover:bg-teal-50 hover:text-teal-700"
+          className="rounded-lg bg-white px-3.5 py-2 text-sm font-medium text-zinc-600 ring-1 ring-surface-border transition-colors hover:bg-emerald-50 hover:text-green-800"
         >
           {link.label}
         </Link>
@@ -88,7 +88,7 @@ export function DateRangeForm({
       ) : null}
       <button
         type="submit"
-        className="self-end rounded-lg bg-teal-700 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-teal-800 focus-ring"
+        className="self-end rounded-lg bg-green-800 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-green-900 focus-ring"
       >
         Apply
       </button>

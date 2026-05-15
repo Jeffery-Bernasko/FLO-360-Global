@@ -63,7 +63,7 @@ function ReportCard({
       href={href}
       className="group flex flex-col gap-3 rounded-xl bg-white p-5 shadow-sm ring-1 ring-surface-border transition-all hover:shadow-md hover:-translate-y-0.5"
     >
-      <div className="rounded-lg bg-zinc-100 p-2.5 text-zinc-500 transition-colors group-hover:bg-teal-50 group-hover:text-teal-700 w-fit">
+      <div className="rounded-lg bg-zinc-100 p-2.5 text-zinc-500 transition-colors group-hover:bg-emerald-50 group-hover:text-green-800 w-fit">
         {icon}
       </div>
       <div>

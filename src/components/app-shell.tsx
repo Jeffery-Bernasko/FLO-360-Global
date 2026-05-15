@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import type { UserRole } from "@/db/schema";
 import { signOutAction } from "./sign-out-action";
 import { MobileNav } from "./mobile-nav";
@@ -13,7 +14,6 @@ import {
   IconAdjustment,
   IconReports,
   IconSignOut,
-  IconBox,
 } from "./icons";
 
 export type NavIconName =
@@ -103,9 +103,13 @@ function DesktopSidebar({
     <>
       {/* Logo */}
       <div className="flex h-14 items-center gap-3 border-b border-sidebar-border px-5">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-600">
-          <IconBox width={16} height={16} className="text-white" />
-        </div>
+        <Image
+          src="/logo.jpeg"
+          alt="FLO 360 Global"
+          width={32}
+          height={32}
+          className="rounded-full"
+        />
         <span className="font-display text-base font-bold tracking-tight text-white">
           FLO 360
         </span>

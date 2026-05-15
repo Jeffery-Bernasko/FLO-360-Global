@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
+import Image from "next/image";
 import { auth, signIn } from "@/auth";
 import { AuthError } from "next-auth";
-import { IconBox, IconMail } from "@/components/icons";
+import { IconMail } from "@/components/icons";
 import { PasswordField } from "./password-field";
 
 type SearchParams = Promise<{ error?: string; from?: string }>;
@@ -52,7 +53,7 @@ export default async function SignInPage({
       <div
         className="absolute inset-0"
         style={{
-          background: "radial-gradient(ellipse 80% 60% at 50% 40%, rgba(13,148,136,0.06) 0%, transparent 70%)",
+          background: "radial-gradient(ellipse 80% 60% at 50% 40%, rgba(27,107,58,0.06) 0%, transparent 70%)",
         }}
       />
 
@@ -60,15 +61,15 @@ export default async function SignInPage({
       <div className="sign-in-grid absolute inset-0 opacity-[0.35]" />
 
       {/* Floating gradient orbs for depth */}
-      <div className="absolute -top-40 -right-40 h-[600px] w-[600px] rounded-full bg-teal-500/[0.05] blur-[100px]" />
-      <div className="absolute -bottom-32 -left-32 h-[450px] w-[450px] rounded-full bg-amber-400/[0.04] blur-[90px]" />
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[700px] w-[700px] rounded-full bg-teal-600/[0.03] blur-[120px]" />
+      <div className="absolute -top-40 -right-40 h-[600px] w-[600px] rounded-full bg-brand-green/[0.06] blur-[100px]" />
+      <div className="absolute -bottom-32 -left-32 h-[450px] w-[450px] rounded-full bg-brand-pink/[0.06] blur-[90px]" />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[700px] w-[700px] rounded-full bg-brand-green/[0.04] blur-[120px]" />
 
       {/* Decorative corner marks — warehouse floor markings vibe */}
-      <div className="absolute top-8 left-8 h-16 w-16 border-l-2 border-t-2 border-teal-600/10 rounded-tl-sm" />
-      <div className="absolute top-8 right-8 h-16 w-16 border-r-2 border-t-2 border-teal-600/10 rounded-tr-sm" />
-      <div className="absolute bottom-8 left-8 h-16 w-16 border-l-2 border-b-2 border-teal-600/10 rounded-bl-sm" />
-      <div className="absolute bottom-8 right-8 h-16 w-16 border-r-2 border-b-2 border-teal-600/10 rounded-br-sm" />
+      <div className="absolute top-8 left-8 h-16 w-16 border-l-2 border-t-2 border-brand-green/10 rounded-tl-sm" />
+      <div className="absolute top-8 right-8 h-16 w-16 border-r-2 border-t-2 border-brand-green/10 rounded-tr-sm" />
+      <div className="absolute bottom-8 left-8 h-16 w-16 border-l-2 border-b-2 border-brand-pink/15 rounded-bl-sm" />
+      <div className="absolute bottom-8 right-8 h-16 w-16 border-r-2 border-b-2 border-brand-pink/15 rounded-br-sm" />
 
       {/* Noise texture overlay for tactile feel */}
       <div className="absolute inset-0 sign-in-noise opacity-[0.3]" />
@@ -77,8 +78,15 @@ export default async function SignInPage({
       <div className="relative z-10 w-full max-w-[400px]">
         {/* Logo + brand */}
         <div className="sign-in-stagger-1 mb-10 flex flex-col items-center text-center">
-          <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-sidebar shadow-xl shadow-sidebar/20 ring-1 ring-white/10">
-            <IconBox width={30} height={30} className="text-teal-400" />
+          <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-white shadow-xl shadow-brand-green/15 ring-1 ring-surface-border">
+            <Image
+              src="/logo.jpeg"
+              alt="FLO 360 Global"
+              width={72}
+              height={72}
+              className="rounded-full"
+              priority
+            />
           </div>
           <h1 className="font-display text-[1.85rem] font-bold tracking-tight text-zinc-900">
             FLO 360 Global

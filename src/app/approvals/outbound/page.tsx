@@ -66,10 +66,10 @@ export default async function PendingOutboundPage() {
                 const total = f.totalPesewas ?? f.boxes * f.unitPricePesewas;
                 const insufficient = f.boxes > currentStock;
                 return (
-                  <tr key={String(f.id)} className="transition-colors hover:bg-teal-50/30">
+                  <tr key={String(f.id)} className="transition-colors hover:bg-emerald-50/30">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        <Link href={`/approvals/outbound/${f.id}`} className="font-medium text-zinc-900 hover:text-teal-700">
+                        <Link href={`/approvals/outbound/${f.id}`} className="font-medium text-zinc-900 hover:text-green-800">
                           {f.customerName}
                         </Link>
                         {insufficient && <Badge variant="danger">Low stock</Badge>}
@@ -81,7 +81,7 @@ export default async function PendingOutboundPage() {
                     <td className="px-4 py-3 text-right font-mono text-zinc-700">{formatGhs(total)}</td>
                     <td className="px-4 py-3 text-zinc-500">{f.dispatchDate}</td>
                     <td className="px-4 py-3">
-                      <Link href={`/approvals/outbound/${f.id}`} className="text-zinc-400 hover:text-teal-600" aria-label="Review">
+                      <Link href={`/approvals/outbound/${f.id}`} className="text-zinc-400 hover:text-green-700" aria-label="Review">
                         <IconChevron width={16} height={16} />
                       </Link>
                     </td>

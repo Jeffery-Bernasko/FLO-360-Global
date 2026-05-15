@@ -88,10 +88,10 @@ function CustomerTable({
           </thead>
           <tbody className="divide-y divide-surface-border/60">
             {customers.map((c) => (
-              <tr key={c.id} className="transition-colors hover:bg-teal-50/30">
+              <tr key={c.id} className="transition-colors hover:bg-emerald-50/30">
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2">
-                    <Link href={`/customers/${c.id}`} className="font-medium text-zinc-900 hover:text-teal-700">
+                    <Link href={`/customers/${c.id}`} className="font-medium text-zinc-900 hover:text-green-800">
                       {c.name}
                     </Link>
                     {!c.isActive && <Badge variant="danger">Inactive</Badge>}
@@ -100,7 +100,7 @@ function CustomerTable({
                 <td className="px-4 py-3 text-zinc-500">{c.location || "--"}</td>
                 <td className="px-4 py-3 text-zinc-500">{c.phone || "--"}</td>
                 <td className="px-4 py-3">
-                  <Link href={`/customers/${c.id}`} className="text-zinc-400 hover:text-teal-600" aria-label={`Edit ${c.name}`}>
+                  <Link href={`/customers/${c.id}`} className="text-zinc-400 hover:text-green-700" aria-label={`Edit ${c.name}`}>
                     <IconChevron width={16} height={16} />
                   </Link>
                 </td>

@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import type { UserRole } from "@/db/schema";
 import type { NavItemData, NavIconName } from "./app-shell";
 import { signOutAction } from "./sign-out-action";
@@ -18,7 +19,6 @@ import {
   IconSignOut,
   IconMenu,
   IconClose,
-  IconBox,
 } from "./icons";
 
 const ICON_MAP: Record<NavIconName, React.ComponentType<React.SVGProps<SVGSVGElement>>> = {
@@ -58,9 +58,13 @@ export function MobileNav({
       {/* Mobile top bar */}
       <header className="fixed inset-x-0 top-0 z-30 flex h-14 items-center justify-between border-b border-surface-border bg-white px-4 lg:hidden">
         <Link href="/" className="flex items-center gap-2.5">
-          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-teal-600">
-            <IconBox width={14} height={14} className="text-white" />
-          </div>
+          <Image
+            src="/logo.jpeg"
+            alt="FLO 360 Global"
+            width={28}
+            height={28}
+            className="rounded-full"
+          />
           <span className="font-display text-sm font-bold tracking-tight">FLO 360</span>
         </Link>
         <button
@@ -85,9 +89,13 @@ export function MobileNav({
           <aside className="fixed inset-y-0 left-0 z-50 flex w-[var(--sidebar-width)] flex-col bg-sidebar slide-in-left lg:hidden">
             {/* Logo */}
             <div className="flex h-14 items-center gap-3 border-b border-sidebar-border px-5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-600">
-                <IconBox width={16} height={16} className="text-white" />
-              </div>
+              <Image
+                src="/logo.jpeg"
+                alt="FLO 360 Global"
+                width={32}
+                height={32}
+                className="rounded-full"
+              />
               <span className="font-display text-base font-bold tracking-tight text-white">
                 FLO 360
               </span>

@@ -103,7 +103,7 @@ export default async function InboxPage() {
             return (
               <Card
                 key={`${item.kind}-${item.id}`}
-                className="transition-colors hover:bg-teal-50/30"
+                className="transition-colors hover:bg-emerald-50/30"
               >
                 <div className="mb-4 flex items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -118,7 +118,7 @@ export default async function InboxPage() {
                     </div>
                     <Link
                       href={href}
-                      className="block truncate text-base font-semibold text-zinc-900 hover:text-teal-700"
+                      className="block truncate text-base font-semibold text-zinc-900 hover:text-green-800"
                     >
                       {item.party}
                     </Link>
@@ -128,7 +128,7 @@ export default async function InboxPage() {
                   </div>
                   <Link
                     href={href}
-                    className="rounded-lg p-1 text-zinc-400 transition-colors hover:bg-white hover:text-teal-600"
+                    className="rounded-lg p-1 text-zinc-400 transition-colors hover:bg-white hover:text-green-700"
                     aria-label={`Review ${isInbound ? "incoming" : "outgoing"} approval #${item.id}`}
                   >
                     <IconChevron width={16} height={16} />

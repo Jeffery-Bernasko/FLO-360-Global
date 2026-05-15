@@ -88,10 +88,10 @@ function SupplierTable({
           </thead>
           <tbody className="divide-y divide-surface-border/60">
             {suppliers.map((s) => (
-              <tr key={s.id} className="transition-colors hover:bg-teal-50/30">
+              <tr key={s.id} className="transition-colors hover:bg-emerald-50/30">
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2">
-                    <Link href={`/suppliers/${s.id}`} className="font-medium text-zinc-900 hover:text-teal-700">
+                    <Link href={`/suppliers/${s.id}`} className="font-medium text-zinc-900 hover:text-green-800">
                       {s.name}
                     </Link>
                     {!s.isActive && <Badge variant="danger">Inactive</Badge>}
@@ -100,7 +100,7 @@ function SupplierTable({
                 <td className="px-4 py-3 text-zinc-500">{s.country || "--"}</td>
                 <td className="px-4 py-3 text-zinc-500">{s.contact || "--"}</td>
                 <td className="px-4 py-3">
-                  <Link href={`/suppliers/${s.id}`} className="text-zinc-400 hover:text-teal-600" aria-label={`Edit ${s.name}`}>
+                  <Link href={`/suppliers/${s.id}`} className="text-zinc-400 hover:text-green-700" aria-label={`Edit ${s.name}`}>
                     <IconChevron width={16} height={16} />
                   </Link>
                 </td>
