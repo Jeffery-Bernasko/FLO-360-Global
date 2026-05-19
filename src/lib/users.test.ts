@@ -6,12 +6,16 @@ const mocks = vi.hoisted(() => {
     selectRows: unknown[];
     insertReturning: unknown[];
     insertError: unknown | null;
+    insertValues: unknown | null;
+    updateSet: unknown | null;
     updateReturning: unknown[];
     orderByArgs: unknown[] | null;
   } = {
     selectRows: [],
     insertReturning: [{ id: "new-user-id" }],
     insertError: null,
+    insertValues: null,
+    updateSet: null,
     updateReturning: [{ id: "target-user-id" }],
     orderByArgs: null,
   };
@@ -29,20 +33,26 @@ const mocks = vi.hoisted(() => {
   }));
 
   const insert = vi.fn(() => ({
-    values: vi.fn(() => ({
-      returning: vi.fn(async () => {
-        if (state.insertError) throw state.insertError;
-        return state.insertReturning;
-      }),
-    })),
+    values: vi.fn((values: unknown) => {
+      state.insertValues = values;
+      return {
+        returning: vi.fn(async () => {
+          if (state.insertError) throw state.insertError;
+          return state.insertReturning;
+        }),
+      };
+    }),
   }));
 
   const update = vi.fn(() => ({
-    set: vi.fn(() => ({
-      where: vi.fn(() => ({
-        returning: vi.fn(async () => state.updateReturning),
-      })),
-    })),
+    set: vi.fn((values: unknown) => {
+      state.updateSet = values;
+      return {
+        where: vi.fn(() => ({
+          returning: vi.fn(async () => state.updateReturning),
+        })),
+      };
+    }),
   }));
 
   const db = {
@@ -65,6 +75,7 @@ vi.mock("@/db", () => ({ db: mocks.db }));
 vi.mock("@/audit", () => ({ log: mocks.log }));
 
 import {
+  changeOwnPassword,
   UserError,
   createWorker,
   deactivateUser,
@@ -72,6 +83,7 @@ import {
   reactivateUser,
   resetUserPassword,
 } from "./users";
+import { hashPassword } from "./passwords";
 
 const manager = { id: "mgr-1", role: "manager" as const };
 const worker = { id: "wkr-1", role: "worker" as const };
@@ -80,6 +92,8 @@ beforeEach(() => {
   mocks.state.selectRows = [];
   mocks.state.insertReturning = [{ id: "new-user-id" }];
   mocks.state.insertError = null;
+  mocks.state.insertValues = null;
+  mocks.state.updateSet = null;
   mocks.state.updateReturning = [{ id: "target-user-id" }];
   mocks.state.orderByArgs = null;
   mocks.log.mockClear();
@@ -129,6 +143,9 @@ describe("createWorker", () => {
     expect(result.userId).toBe("new-user-id");
     expect(result.email).toBe("k@x.com");
     expect(result.tempPassword.length).toBeGreaterThanOrEqual(10);
+    expect(mocks.state.insertValues).toMatchObject({
+      mustChangePassword: true,
+    });
     expect(mocks.db.transaction).toHaveBeenCalledOnce();
     expect(mocks.log).toHaveBeenCalledOnce();
     expect(mocks.log).toHaveBeenCalledWith({
@@ -218,6 +235,9 @@ describe("resetUserPassword", () => {
     });
     expect(result.userId).toBe("target-user-id");
     expect(result.tempPassword.length).toBeGreaterThanOrEqual(10);
+    expect(mocks.state.updateSet).toMatchObject({
+      mustChangePassword: true,
+    });
     expect(mocks.db.transaction).toHaveBeenCalledOnce();
     expect(mocks.log).toHaveBeenCalledWith(
       expect.objectContaining({ action: "user.password_reset" }),
@@ -230,6 +250,71 @@ describe("resetUserPassword", () => {
     await expect(
       resetUserPassword({ actor: manager, targetUserId: "ghost" }),
     ).rejects.toMatchObject({ code: "not_found" });
+  });
+});
+
+describe("changeOwnPassword", () => {
+  it("rejects weak passwords", async () => {
+    await expect(
+      changeOwnPassword({
+        actor: { ...worker, email: "w@example.com" },
+        newPassword: "short",
+        confirmPassword: "short",
+      }),
+    ).rejects.toMatchObject({ code: "weak_password" });
+  });
+
+  it("rejects mismatched confirmation", async () => {
+    await expect(
+      changeOwnPassword({
+        actor: { ...worker, email: "w@example.com" },
+        newPassword: "new-password",
+        confirmPassword: "other-password",
+      }),
+    ).rejects.toMatchObject({ code: "password_mismatch" });
+  });
+
+  it("rejects reusing the temporary password", async () => {
+    mocks.state.selectRows = [
+      {
+        id: worker.id,
+        passwordHash: await hashPassword("temporary-password"),
+        isActive: true,
+      },
+    ];
+
+    await expect(
+      changeOwnPassword({
+        actor: { ...worker, email: "w@example.com" },
+        newPassword: "temporary-password",
+        confirmPassword: "temporary-password",
+      }),
+    ).rejects.toMatchObject({ code: "password_reused" });
+  });
+
+  it("updates the password, clears setup requirement, and logs", async () => {
+    mocks.state.selectRows = [
+      {
+        id: worker.id,
+        passwordHash: await hashPassword("temporary-password"),
+        isActive: true,
+      },
+    ];
+
+    await changeOwnPassword({
+      actor: { ...worker, email: "w@example.com" },
+      newPassword: "custom-password",
+      confirmPassword: "custom-password",
+    });
+
+    expect(mocks.state.updateSet).toMatchObject({
+      mustChangePassword: false,
+    });
+    expect(mocks.db.transaction).toHaveBeenCalledOnce();
+    expect(mocks.log).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "user.password_changed" }),
+      expect.anything(),
+    );
   });
 });
 

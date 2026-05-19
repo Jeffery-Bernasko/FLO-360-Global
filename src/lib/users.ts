@@ -1,4 +1,5 @@
 import { eq, and, desc, asc } from "drizzle-orm";
+import bcrypt from "bcryptjs";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { log } from "@/audit";
@@ -14,6 +15,7 @@ export class UserError extends Error {
 }
 
 type Actor = { id: string; role: "worker" | "manager" };
+type PasswordActor = Actor & { email: string };
 
 function assertManager(actor: Actor) {
   if (actor.role !== "manager") {
@@ -85,6 +87,7 @@ export async function createWorker(
           email,
           name,
           passwordHash,
+          mustChangePassword: true,
           role: "worker",
           isActive: true,
         })
@@ -204,7 +207,7 @@ export async function resetUserPassword(
   await db.transaction(async (tx) => {
     const result = await tx
       .update(users)
-      .set({ passwordHash })
+      .set({ passwordHash, mustChangePassword: true })
       .where(eq(users.id, input.targetUserId))
       .returning({ id: users.id });
 
@@ -225,6 +228,79 @@ export async function resetUserPassword(
   });
 
   return { userId: input.targetUserId, tempPassword };
+}
+
+export type ChangeOwnPasswordInput = {
+  actor: PasswordActor;
+  newPassword: string;
+  confirmPassword: string;
+};
+
+export async function changeOwnPassword(
+  input: ChangeOwnPasswordInput,
+): Promise<void> {
+  const newPassword = input.newPassword;
+  const confirmPassword = input.confirmPassword;
+
+  if (newPassword.length < 8) {
+    throw new UserError(
+      "weak_password",
+      "Password must be at least 8 characters.",
+    );
+  }
+  if (newPassword !== confirmPassword) {
+    throw new UserError("password_mismatch", "Passwords do not match.");
+  }
+
+  const [user] = await db
+    .select({
+      id: users.id,
+      passwordHash: users.passwordHash,
+      isActive: users.isActive,
+    })
+    .from(users)
+    .where(eq(users.id, input.actor.id))
+    .limit(1);
+
+  if (!user || !user.isActive) {
+    throw new UserError("not_found", "User not found.");
+  }
+
+  const reusesCurrentPassword = await bcrypt.compare(
+    newPassword,
+    user.passwordHash,
+  );
+  if (reusesCurrentPassword) {
+    throw new UserError(
+      "password_reused",
+      "Choose a password that is different from your temporary password.",
+    );
+  }
+
+  const passwordHash = await hashPassword(newPassword);
+
+  await db.transaction(async (tx) => {
+    const result = await tx
+      .update(users)
+      .set({ passwordHash, mustChangePassword: false })
+      .where(eq(users.id, input.actor.id))
+      .returning({ id: users.id });
+
+    if (result.length === 0) {
+      throw new UserError("not_found", "User not found.");
+    }
+
+    await log(
+      {
+        actorUserId: input.actor.id,
+        action: "user.password_changed",
+        entityType: "user",
+        entityId: input.actor.id,
+        payload: { source: "required_password_setup" },
+      },
+      tx,
+    );
+  });
 }
 
 /**

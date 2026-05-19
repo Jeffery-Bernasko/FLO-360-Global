@@ -27,7 +27,7 @@ export function ResetPasswordButton({
           </code>
         </span>
         <div className="mt-1 text-[0.7rem] text-amber-700">
-          Share with the worker out-of-band. This is the only time it is shown.
+          Share with the worker out-of-band. It is only shown here and must be changed at next sign-in.
         </div>
       </div>
     );

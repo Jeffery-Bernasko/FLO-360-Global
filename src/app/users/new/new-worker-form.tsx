@@ -23,7 +23,7 @@ export function NewWorkerForm() {
           <p className="mt-1 text-sm text-zinc-500">
             Share these credentials with{" "}
             <strong className="text-zinc-900">{state.data.email}</strong>{" "}
-            out-of-band. The temp password is only shown here, once.
+            out-of-band. The temp password is only shown here once and must be changed at first sign-in.
           </p>
         </div>
 
