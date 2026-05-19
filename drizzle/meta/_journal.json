@@ -36,6 +36,13 @@
       "when": 1778677667991,
       "tag": "0004_outbound_forms",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1779148800000,
+      "tag": "0005_first_login_password_change",
+      "breakpoints": true
     }
   ]
 }

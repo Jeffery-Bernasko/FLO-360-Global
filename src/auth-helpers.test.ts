@@ -12,6 +12,7 @@ const managerSession = {
     email: "manager@example.com",
     name: "Mgr",
     role: "manager" as const,
+    mustChangePassword: false,
   },
   expires: new Date(Date.now() + 60_000).toISOString(),
 };

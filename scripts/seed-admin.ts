@@ -29,6 +29,7 @@ async function main() {
     throw new Error("DATABASE_URL is not set");
   }
 
+  const generatedPassword = !values.password;
   const password = values.password ?? generateTempPassword();
   const passwordHash = await hashPassword(password);
 
@@ -53,6 +54,7 @@ async function main() {
           email,
           name,
           passwordHash,
+          mustChangePassword: generatedPassword,
           role: "manager",
           isActive: true,
         })
@@ -79,6 +81,9 @@ async function main() {
   console.log(`  Email:    ${email}`);
   console.log(`  Name:     ${name}`);
   console.log(`  Password: ${password}`);
+  console.log(
+    `  Must change password: ${generatedPassword ? "yes" : "no"}`,
+  );
   console.log(
     "\nWrite this password down and share it with the manager out-of-band.",
   );

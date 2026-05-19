@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 
 const PUBLIC_PATHS = ["/sign-in", "/api/auth"];
+const PASSWORD_SETUP_PATH = "/change-password";
 
 export default async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -16,6 +17,12 @@ export default async function middleware(req: NextRequest) {
     const signInUrl = new URL("/sign-in", req.nextUrl.origin);
     signInUrl.searchParams.set("from", pathname);
     return NextResponse.redirect(signInUrl);
+  }
+
+  if (token.mustChangePassword && pathname !== PASSWORD_SETUP_PATH) {
+    const changePasswordUrl = new URL(PASSWORD_SETUP_PATH, req.nextUrl.origin);
+    changePasswordUrl.searchParams.set("from", pathname);
+    return NextResponse.redirect(changePasswordUrl);
   }
 
   return NextResponse.next();
