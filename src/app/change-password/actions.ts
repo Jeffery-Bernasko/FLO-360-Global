@@ -1,6 +1,5 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { AuthError } from "next-auth";
 import { signIn } from "@/auth";
@@ -61,8 +60,4 @@ export async function changePasswordAction(
     if (isRedirectError(err)) throw err;
     return toResult(err);
   }
-}
-
-export async function redirectAfterPasswordSetup(from: string): Promise<void> {
-  redirect(toSafeRedirectPath(from));
 }

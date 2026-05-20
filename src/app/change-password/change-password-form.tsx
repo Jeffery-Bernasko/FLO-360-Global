@@ -22,7 +22,7 @@ export function ChangePasswordForm({ from }: { from: string }) {
       <FormCard>
         <FormField
           label="New password"
-          hint="Use at least 8 characters. Do not reuse the temporary password."
+          hint="Use at least 8 characters. Must be different from your current password."
         >
           <Input
             type="password"

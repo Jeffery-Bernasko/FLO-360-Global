@@ -16,6 +16,7 @@ import {
   IconUsers,
   IconAdjustment,
   IconReports,
+  IconLock,
   IconSignOut,
   IconMenu,
   IconClose,
@@ -122,7 +123,7 @@ export function MobileNav({
               </ul>
             </nav>
 
-            {/* User + sign out */}
+            {/* User + actions */}
             <div className="border-t border-sidebar-border px-3 py-3">
               <div className="mb-2 px-3">
                 <p className="truncate text-sm font-medium text-sidebar-active">
@@ -132,6 +133,14 @@ export function MobileNav({
                   {user.role}
                 </p>
               </div>
+              <Link
+                href="/change-password"
+                onClick={close}
+                className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium text-sidebar-text transition-colors hover:bg-sidebar-hover hover:text-sidebar-active"
+              >
+                <IconLock width={18} height={18} className="flex-shrink-0 opacity-70" />
+                Change password
+              </Link>
               <form action={signOutAction}>
                 <button
                   type="submit"

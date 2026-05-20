@@ -273,7 +273,7 @@ export async function changeOwnPassword(
   if (reusesCurrentPassword) {
     throw new UserError(
       "password_reused",
-      "Choose a password that is different from your temporary password.",
+      "New password must be different from your current password.",
     );
   }
 
