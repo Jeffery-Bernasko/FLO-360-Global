@@ -42,6 +42,9 @@ export default async function HomePage() {
 
 async function ManagerDashboard() {
   const { currentStock, pending, productStocks } = await getManagerDashboard();
+  const sortedProductStocks = [...productStocks].sort((a, b) =>
+    a.productName.localeCompare(b.productName),
+  );
   const outOfStock = currentStock <= 0;
 
   return (
@@ -108,7 +111,7 @@ async function ManagerDashboard() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-surface-border/60">
-                {productStocks.map((ps) => (
+                {sortedProductStocks.map((ps) => (
                   <tr key={ps.productId} className="transition-colors hover:bg-zinc-50/50">
                     <td className="px-4 py-3 font-medium text-zinc-900">{ps.productName}</td>
                     <td className={`px-4 py-3 text-right font-mono font-medium ${ps.total <= 0 ? "text-rose-600" : "text-zinc-900"}`}>
