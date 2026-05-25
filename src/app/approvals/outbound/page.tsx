@@ -4,12 +4,9 @@ import { requireManager } from "@/auth-server";
 import { ForbiddenError, UnauthorizedError } from "@/auth-helpers";
 import { AppShell } from "@/components/app-shell";
 import { PageHeader } from "@/components/ui/page-header";
-import { MetricCard } from "@/components/ui/metric-card";
-import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
-import { IconBox, IconChevron } from "@/components/icons";
+import { IconChevron } from "@/components/icons";
 import { listPendingOutboundForms } from "@/lib/outbound-forms";
-import { getCurrentStock } from "@/lib/stock-ledger";
 import { formatGhs } from "@/lib/money";
 
 export default async function PendingOutboundPage() {
@@ -22,10 +19,7 @@ export default async function PendingOutboundPage() {
     throw err;
   }
 
-  const [pending, currentStock] = await Promise.all([
-    listPendingOutboundForms(),
-    getCurrentStock(),
-  ]);
+  const pending = await listPendingOutboundForms();
 
   return (
     <AppShell user={me}>
@@ -33,16 +27,6 @@ export default async function PendingOutboundPage() {
         title="Pending Outbound"
         description="Approving deducts boxes from stock and generates an invoice."
       />
-
-      <div className="mb-6">
-        <MetricCard
-          label="Current Stock"
-          value={currentStock}
-          unit="boxes"
-          variant={currentStock <= 0 ? "danger" : "default"}
-          icon={<IconBox width={20} height={20} />}
-        />
-      </div>
 
       {pending.length === 0 ? (
         <EmptyState
@@ -62,23 +46,17 @@ export default async function PendingOutboundPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-surface-border/60">
-              {pending.map((f) => {
-                const total = f.totalPesewas ?? f.boxes * f.unitPricePesewas;
-                const insufficient = f.boxes > currentStock;
-                return (
+              {pending.map((f) => (
                   <tr key={String(f.id)} className="transition-colors hover:bg-emerald-50/30">
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <Link href={`/approvals/outbound/${f.id}`} className="font-medium text-zinc-900 hover:text-green-800">
-                          {f.customerName}
-                        </Link>
-                        {insufficient && <Badge variant="danger">Low stock</Badge>}
-                      </div>
+                      <Link href={`/approvals/outbound/${f.id}`} className="font-medium text-zinc-900 hover:text-green-800">
+                        {f.customerName}
+                      </Link>
                     </td>
-                    <td className={`px-4 py-3 text-right font-mono ${insufficient ? "text-rose-600 font-medium" : "text-zinc-700"}`}>
+                    <td className="px-4 py-3 text-right font-mono text-zinc-700">
                       {f.boxes}
                     </td>
-                    <td className="px-4 py-3 text-right font-mono text-zinc-700">{formatGhs(total)}</td>
+                    <td className="px-4 py-3 text-right font-mono text-zinc-700">{formatGhs(f.totalPesewas)}</td>
                     <td className="px-4 py-3 text-zinc-500">{f.dispatchDate}</td>
                     <td className="px-4 py-3">
                       <Link href={`/approvals/outbound/${f.id}`} className="text-zinc-400 hover:text-green-700" aria-label="Review">
@@ -86,8 +64,7 @@ export default async function PendingOutboundPage() {
                       </Link>
                     </td>
                   </tr>
-                );
-              })}
+                ))}
             </tbody>
           </table>
         </div>

@@ -3,7 +3,6 @@ import { requireUser } from "@/auth-server";
 import { UnauthorizedError } from "@/auth-helpers";
 import { AppShell } from "@/components/app-shell";
 import { PageHeader } from "@/components/ui/page-header";
-import { getCurrentStock } from "@/lib/stock-ledger";
 import { OutboundFormFields } from "../outbound-form-fields";
 
 export default async function NewOutboundFormPage() {
@@ -15,8 +14,6 @@ export default async function NewOutboundFormPage() {
     throw err;
   }
 
-  const currentStock = await getCurrentStock();
-
   return (
     <AppShell user={me}>
       <div className="mx-auto max-w-lg">
@@ -24,7 +21,7 @@ export default async function NewOutboundFormPage() {
           title="New Outbound Dispatch"
           description="Submit for the manager's approval. Stock is deducted once approved and an invoice PDF is generated."
         />
-        <OutboundFormFields mode={{ kind: "create", currentStock }} />
+        <OutboundFormFields mode={{ kind: "create" }} />
       </div>
     </AppShell>
   );

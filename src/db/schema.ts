@@ -236,10 +236,8 @@ export const outboundForms = pgTable(
     boxes: integer("boxes").notNull(),
     /** Money is stored as integer pesewas. 1 GHS = 100 pesewas. */
     unitPricePesewas: integer("unit_price_pesewas").notNull(),
-    /** Stored generated column = boxes * unit_price_pesewas. Always in sync. */
-    totalPesewas: integer("total_pesewas").generatedAlwaysAs(
-      sql`(boxes * unit_price_pesewas)`,
-    ),
+    /** Sum of line-item subtotals. Was a generated column before multi-product. */
+    totalPesewas: integer("total_pesewas").notNull(),
     dispatchDate: date("dispatch_date").notNull(),
     note: text("note"),
     status: formStatusEnum("status").notNull().default("pending"),
@@ -298,5 +296,33 @@ export type InboundForm = typeof inboundForms.$inferSelect;
 export type NewInboundForm = typeof inboundForms.$inferInsert;
 export type InboundFormLine = typeof inboundFormLines.$inferSelect;
 export type NewInboundFormLine = typeof inboundFormLines.$inferInsert;
+export const outboundFormLines = pgTable(
+  "outbound_form_lines",
+  {
+    id: bigserial("id", { mode: "bigint" }).primaryKey(),
+    formId: bigint("form_id", { mode: "bigint" })
+      .notNull()
+      .references(() => outboundForms.id, { onDelete: "cascade" }),
+    productId: uuid("product_id")
+      .notNull()
+      .references(() => products.id, { onDelete: "restrict" }),
+    boxes: integer("boxes").notNull(),
+    unitPricePesewas: integer("unit_price_pesewas").notNull(),
+  },
+  (t) => ({
+    formIdIdx: index("outbound_form_lines_form_id_idx").on(t.formId),
+    boxesPositive: check(
+      "outbound_form_lines_boxes_positive",
+      sql`${t.boxes} > 0`,
+    ),
+    unitPricePositive: check(
+      "outbound_form_lines_unit_price_positive",
+      sql`${t.unitPricePesewas} > 0`,
+    ),
+  }),
+);
+
 export type OutboundForm = typeof outboundForms.$inferSelect;
 export type NewOutboundForm = typeof outboundForms.$inferInsert;
+export type OutboundFormLine = typeof outboundFormLines.$inferSelect;
+export type NewOutboundFormLine = typeof outboundFormLines.$inferInsert;

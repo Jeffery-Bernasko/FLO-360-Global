@@ -29,10 +29,11 @@ const mocks = vi.hoisted(() => {
       from: vi.fn((table?: unknown) => {
         // Distinguish between form lines and forms based on subsequent calls
         return {
-          where: vi.fn(() => ({
-            limit: vi.fn(async () => {
+          where: vi.fn(() => {
+            // Return an object that is both thenable (for `await select().from().where()`)
+            // and has `.limit()` / `.for()` for chained queries.
+            const directResult = async () => {
               if (lastSelectMode === "supplier") {
-                // Alternate between supplier and product lookups
                 const result = state.supplierLookup;
                 lastSelectMode = "product";
                 return result;
@@ -40,12 +41,28 @@ const mocks = vi.hoisted(() => {
               if (lastSelectMode === "product") {
                 return state.productLookup;
               }
-              return state.selectFormReturning;
-            }),
-            for: vi.fn(() => ({
-              limit: vi.fn(async () => state.selectFormReturning),
-            })),
-          })),
+              // "form" mode without .limit()/.for() = line items query
+              return state.selectLinesReturning;
+            };
+            return {
+              then: (resolve: (v: unknown) => void, reject?: (e: unknown) => void) =>
+                directResult().then(resolve, reject),
+              limit: vi.fn(async () => {
+                if (lastSelectMode === "supplier") {
+                  const result = state.supplierLookup;
+                  lastSelectMode = "product";
+                  return result;
+                }
+                if (lastSelectMode === "product") {
+                  return state.productLookup;
+                }
+                return state.selectFormReturning;
+              }),
+              for: vi.fn(() => ({
+                limit: vi.fn(async () => state.selectFormReturning),
+              })),
+            };
+          }),
           innerJoin: vi.fn(() => ({
             where: vi.fn(async () => state.selectLinesReturning),
           })),
