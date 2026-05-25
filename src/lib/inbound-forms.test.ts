@@ -1,39 +1,56 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+const productId = "22222222-2222-2222-2222-222222222222";
+
 const mocks = vi.hoisted(() => {
   const state: {
     supplierLookup: { id: string; isActive: boolean }[];
+    productLookup: { id: string; isActive: boolean }[];
     insertReturning: unknown[];
     selectFormReturning: unknown[];
+    selectLinesReturning: unknown[];
     updateReturning: unknown[];
   } = {
     supplierLookup: [{ id: "supplier-1", isActive: true }],
+    productLookup: [{ id: "22222222-2222-2222-2222-222222222222", isActive: true }],
     insertReturning: [],
     selectFormReturning: [],
+    selectLinesReturning: [],
     updateReturning: [],
   };
 
-  // Tracks whether the most recent select() should resolve to the supplier
-  // lookup row or to a form lookup. Toggled by `from()` based on which table
-  // is being queried (we infer from arity of select args).
-  let lastSelectMode: "supplier" | "form" = "supplier";
+  // Track which table is being queried to return appropriate mock data.
+  let lastSelectMode: "supplier" | "product" | "form" | "lines" = "supplier";
 
   const select = vi.fn((fields?: unknown) => {
-    // selectWithSpecificFields used by supplier lookup vs select() for forms
+    // select with specific fields = supplier or product lookup; select() = form
     lastSelectMode = fields ? "supplier" : "form";
     return {
-      from: vi.fn(() => ({
-        where: vi.fn(() => ({
-          limit: vi.fn(async () =>
-            lastSelectMode === "supplier"
-              ? state.supplierLookup
-              : state.selectFormReturning,
-          ),
-          for: vi.fn(() => ({
-            limit: vi.fn(async () => state.selectFormReturning),
+      from: vi.fn((table?: unknown) => {
+        // Distinguish between form lines and forms based on subsequent calls
+        return {
+          where: vi.fn(() => ({
+            limit: vi.fn(async () => {
+              if (lastSelectMode === "supplier") {
+                // Alternate between supplier and product lookups
+                const result = state.supplierLookup;
+                lastSelectMode = "product";
+                return result;
+              }
+              if (lastSelectMode === "product") {
+                return state.productLookup;
+              }
+              return state.selectFormReturning;
+            }),
+            for: vi.fn(() => ({
+              limit: vi.fn(async () => state.selectFormReturning),
+            })),
           })),
-        })),
-      })),
+          innerJoin: vi.fn(() => ({
+            where: vi.fn(async () => state.selectLinesReturning),
+          })),
+        };
+      }),
     };
   });
 
@@ -51,10 +68,15 @@ const mocks = vi.hoisted(() => {
     })),
   }));
 
+  const deleteFn = vi.fn(() => ({
+    where: vi.fn(async () => []),
+  }));
+
   const db = {
     select,
     insert,
     update,
+    delete: deleteFn,
     transaction: vi.fn(async (cb: (tx: unknown) => unknown) => cb(db)),
   };
 
@@ -86,8 +108,10 @@ const manager = { id: "mgr-1", role: "manager" as const };
 
 beforeEach(() => {
   mocks.state.supplierLookup = [{ id: "supplier-1", isActive: true }];
+  mocks.state.productLookup = [{ id: productId, isActive: true }];
   mocks.state.insertReturning = [];
   mocks.state.selectFormReturning = [];
+  mocks.state.selectLinesReturning = [];
   mocks.state.updateReturning = [];
   mocks.log.mockClear();
   mocks.recordMovement.mockClear();
@@ -97,7 +121,7 @@ beforeEach(() => {
 const validInput = {
   actor: worker,
   supplierId: "11111111-1111-1111-1111-111111111111",
-  boxes: 100,
+  lines: [{ productId, boxes: 100 }],
   receivedDate: "2026-05-10",
   note: "Shipment 23",
 };
@@ -111,16 +135,34 @@ describe("submitInbound", () => {
 
   it("rejects zero or negative boxes", async () => {
     await expect(
-      submitInbound({ ...validInput, boxes: 0 }),
+      submitInbound({ ...validInput, lines: [{ productId, boxes: 0 }] }),
     ).rejects.toMatchObject({ code: "invalid" });
     await expect(
-      submitInbound({ ...validInput, boxes: -5 }),
+      submitInbound({ ...validInput, lines: [{ productId, boxes: -5 }] }),
+    ).rejects.toMatchObject({ code: "invalid" });
+  });
+
+  it("rejects empty lines array", async () => {
+    await expect(
+      submitInbound({ ...validInput, lines: [] }),
     ).rejects.toMatchObject({ code: "invalid" });
   });
 
   it("rejects missing receivedDate", async () => {
     await expect(
       submitInbound({ ...validInput, receivedDate: "not-a-date" }),
+    ).rejects.toMatchObject({ code: "invalid" });
+  });
+
+  it("rejects duplicate products in lines", async () => {
+    await expect(
+      submitInbound({
+        ...validInput,
+        lines: [
+          { productId, boxes: 50 },
+          { productId, boxes: 30 },
+        ],
+      }),
     ).rejects.toMatchObject({ code: "invalid" });
   });
 
@@ -188,7 +230,7 @@ describe("approveInbound", () => {
     expect(mocks.recordMovement).not.toHaveBeenCalled();
   });
 
-  it("happy path: flips status, records +boxes movement, and audits", async () => {
+  it("happy path: flips status, records movement per line, and audits", async () => {
     mocks.state.selectFormReturning = [
       {
         id: 1n,
@@ -197,6 +239,9 @@ describe("approveInbound", () => {
         supplierId: "s",
         note: "note",
       },
+    ];
+    mocks.state.selectLinesReturning = [
+      { id: 1n, formId: 1n, productId, boxes: 75, productName: "Default" },
     ];
     mocks.state.updateReturning = [
       {
@@ -216,6 +261,7 @@ describe("approveInbound", () => {
         boxesDelta: 75,
         sourceFormKind: "inbound",
         sourceFormId: 1n,
+        productId,
         actor: { id: manager.id },
       }),
       expect.anything(),

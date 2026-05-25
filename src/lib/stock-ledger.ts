@@ -1,7 +1,8 @@
-import { and, asc, gte, lte, sql } from "drizzle-orm";
+import { and, asc, eq, gte, lte, sql } from "drizzle-orm";
 import { db, type Database } from "@/db";
 import {
   stockMovements,
+  products,
   type MovementKind,
   type SourceFormKind,
   type StockMovement,
@@ -31,6 +32,7 @@ export type RecordMovementInput = {
   reason?: string | null;
   sourceFormKind?: SourceFormKind | null;
   sourceFormId?: bigint | null;
+  productId: string;
   actor: { id: string };
 };
 
@@ -115,6 +117,7 @@ export async function recordMovement(
       reason: input.reason ?? null,
       sourceFormKind: input.sourceFormKind ?? null,
       sourceFormId: input.sourceFormId ?? null,
+      productId: input.productId,
       createdBy: input.actor.id,
     })
     .returning({ id: stockMovements.id });
@@ -132,6 +135,7 @@ export async function recordMovement(
         sourceFormKind: input.sourceFormKind ?? null,
         sourceFormId:
           input.sourceFormId != null ? String(input.sourceFormId) : null,
+        productId: input.productId,
       },
     },
     tx,
@@ -192,4 +196,69 @@ export async function getMovements(
     )
     .orderBy(asc(stockMovements.createdAt), asc(stockMovements.id))
     .limit(cap);
+}
+
+/**
+ * Returns per-product stock as a map of { productId → total boxes }.
+ * Only includes products with non-zero stock.
+ */
+export async function getStockByProduct(
+  tx?: LedgerClient,
+): Promise<Map<string, number>> {
+  const client = tx ?? db;
+  const rows = await client
+    .select({
+      productId: stockMovements.productId,
+      total: sql<string>`COALESCE(SUM(${stockMovements.boxesDelta}), 0)`.as("total"),
+    })
+    .from(stockMovements)
+    .groupBy(stockMovements.productId);
+
+  const map = new Map<string, number>();
+  for (const row of rows) {
+    const total = Number(row.total);
+    if (total !== 0) map.set(row.productId, total);
+  }
+  return map;
+}
+
+/**
+ * Returns the stock level for a single product.
+ */
+export async function getStockForProduct(
+  productId: string,
+  tx?: LedgerClient,
+): Promise<number> {
+  const client = tx ?? db;
+  const rows = await client
+    .select({
+      total: sql<string>`COALESCE(SUM(${stockMovements.boxesDelta}), 0)`.as("total"),
+    })
+    .from(stockMovements)
+    .where(eq(stockMovements.productId, productId));
+  return Number(rows[0]?.total ?? 0);
+}
+
+/**
+ * Returns per-product stock with product names. Used for dashboard display.
+ */
+export async function getStockByProductWithNames(
+  tx?: LedgerClient,
+): Promise<{ productId: string; productName: string; total: number }[]> {
+  const client = tx ?? db;
+  const rows = await client
+    .select({
+      productId: stockMovements.productId,
+      productName: products.name,
+      total: sql<string>`COALESCE(SUM(${stockMovements.boxesDelta}), 0)`.as("total"),
+    })
+    .from(stockMovements)
+    .innerJoin(products, eq(stockMovements.productId, products.id))
+    .groupBy(stockMovements.productId, products.name);
+
+  return rows.map((r) => ({
+    productId: r.productId,
+    productName: r.productName,
+    total: Number(r.total),
+  }));
 }

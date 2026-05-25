@@ -3,8 +3,11 @@ import { z } from "zod";
 import { db } from "@/db";
 import {
   inboundForms,
+  inboundFormLines,
+  products,
   suppliers,
   type InboundForm,
+  type InboundFormLine,
   type Supplier,
 } from "@/db/schema";
 import { log } from "@/audit";
@@ -21,12 +24,19 @@ export class InboundFormError extends Error {
 
 type Actor = { id: string; role: "worker" | "manager" };
 
-const submitSchema = z.object({
-  supplierId: z.string().uuid("Pick a supplier."),
+const lineItemSchema = z.object({
+  productId: z.string().uuid("Pick a product."),
   boxes: z.coerce
     .number({ invalid_type_error: "Boxes must be a number." })
     .int("Boxes must be a whole number.")
     .positive("Boxes must be greater than zero."),
+});
+
+const submitSchema = z.object({
+  supplierId: z.string().uuid("Pick a supplier."),
+  lines: z
+    .array(lineItemSchema)
+    .min(1, "At least one product line is required."),
   receivedDate: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Received date is required."),
@@ -34,10 +44,15 @@ const submitSchema = z.object({
   attachmentKey: z.string().optional().nullable(),
 });
 
+export type LineItemInput = {
+  productId: string;
+  boxes: number | string;
+};
+
 export type SubmitInboundInput = {
   actor: Actor;
   supplierId: string;
-  boxes: number | string;
+  lines: LineItemInput[];
   receivedDate: string;
   note?: string | null;
   attachmentKey?: string | null;
@@ -48,31 +63,46 @@ function parseSubmit(input: SubmitInboundInput) {
   if (!parsed.success) {
     throw new InboundFormError("invalid", parsed.error.issues[0]?.message ?? "Invalid form input.");
   }
+  // Check for duplicate products
+  const productIds = parsed.data.lines.map((l) => l.productId);
+  if (new Set(productIds).size !== productIds.length) {
+    throw new InboundFormError("invalid", "Each product can only appear once per form.");
+  }
   return parsed.data;
 }
 
 export async function submitInbound(input: SubmitInboundInput): Promise<InboundForm> {
   const data = parseSubmit(input);
+  const totalBoxes = data.lines.reduce((sum, l) => sum + l.boxes, 0);
 
   return db.transaction(async (tx) => {
-    // Verify supplier exists and is active before insert (cheaper than relying on FK error UX).
+    // Verify supplier exists and is active.
     const supplierRows = await tx
       .select({ id: suppliers.id, isActive: suppliers.isActive })
       .from(suppliers)
       .where(eq(suppliers.id, data.supplierId))
       .limit(1);
     if (supplierRows.length === 0 || !supplierRows[0].isActive) {
-      throw new InboundFormError(
-        "invalid_supplier",
-        "Supplier not found or inactive.",
-      );
+      throw new InboundFormError("invalid_supplier", "Supplier not found or inactive.");
+    }
+
+    // Verify all products exist and are active.
+    for (const line of data.lines) {
+      const productRows = await tx
+        .select({ id: products.id, isActive: products.isActive })
+        .from(products)
+        .where(eq(products.id, line.productId))
+        .limit(1);
+      if (productRows.length === 0 || !productRows[0].isActive) {
+        throw new InboundFormError("invalid_product", "Product not found or inactive.");
+      }
     }
 
     const [created] = await tx
       .insert(inboundForms)
       .values({
         supplierId: data.supplierId,
-        boxes: data.boxes,
+        boxes: totalBoxes,
         receivedDate: data.receivedDate,
         note: data.note ?? null,
         attachmentKey: data.attachmentKey ?? null,
@@ -80,6 +110,15 @@ export async function submitInbound(input: SubmitInboundInput): Promise<InboundF
         createdBy: input.actor.id,
       })
       .returning();
+
+    // Insert line items.
+    await tx.insert(inboundFormLines).values(
+      data.lines.map((line) => ({
+        formId: created.id,
+        productId: line.productId,
+        boxes: line.boxes,
+      })),
+    );
 
     await log(
       {
@@ -89,8 +128,9 @@ export async function submitInbound(input: SubmitInboundInput): Promise<InboundF
         entityId: String(created.id),
         payload: {
           supplierId: created.supplierId,
-          boxes: created.boxes,
+          boxes: totalBoxes,
           receivedDate: created.receivedDate,
+          lines: data.lines,
         },
       },
       tx,
@@ -104,7 +144,7 @@ export type EditAndResubmitInput = {
   actor: Actor;
   formId: bigint;
   supplierId: string;
-  boxes: number | string;
+  lines: LineItemInput[];
   receivedDate: string;
   note?: string | null;
   /** When provided, replaces the existing key. When `null`, clears it. When `undefined`, leaves as-is. */
@@ -117,11 +157,12 @@ export async function editAndResubmitInbound(
   const data = parseSubmit({
     actor: input.actor,
     supplierId: input.supplierId,
-    boxes: input.boxes,
+    lines: input.lines,
     receivedDate: input.receivedDate,
     note: input.note,
     attachmentKey: input.attachmentKey ?? undefined,
   });
+  const totalBoxes = data.lines.reduce((sum, l) => sum + l.boxes, 0);
 
   return db.transaction(async (tx) => {
     const [existing] = await tx
@@ -147,17 +188,25 @@ export async function editAndResubmitInbound(
       .where(eq(suppliers.id, data.supplierId))
       .limit(1);
     if (supplierRows.length === 0 || !supplierRows[0].isActive) {
-      throw new InboundFormError(
-        "invalid_supplier",
-        "Supplier not found or inactive.",
-      );
+      throw new InboundFormError("invalid_supplier", "Supplier not found or inactive.");
+    }
+
+    for (const line of data.lines) {
+      const productRows = await tx
+        .select({ id: products.id, isActive: products.isActive })
+        .from(products)
+        .where(eq(products.id, line.productId))
+        .limit(1);
+      if (productRows.length === 0 || !productRows[0].isActive) {
+        throw new InboundFormError("invalid_product", "Product not found or inactive.");
+      }
     }
 
     const [updated] = await tx
       .update(inboundForms)
       .set({
         supplierId: data.supplierId,
-        boxes: data.boxes,
+        boxes: totalBoxes,
         receivedDate: data.receivedDate,
         note: data.note ?? null,
         attachmentKey:
@@ -172,6 +221,18 @@ export async function editAndResubmitInbound(
       .where(eq(inboundForms.id, input.formId))
       .returning();
 
+    // Replace all line items.
+    await tx
+      .delete(inboundFormLines)
+      .where(eq(inboundFormLines.formId, input.formId));
+    await tx.insert(inboundFormLines).values(
+      data.lines.map((line) => ({
+        formId: input.formId,
+        productId: line.productId,
+        boxes: line.boxes,
+      })),
+    );
+
     await log(
       {
         actorUserId: input.actor.id,
@@ -183,13 +244,12 @@ export async function editAndResubmitInbound(
             supplierId: existing.supplierId,
             boxes: existing.boxes,
             receivedDate: existing.receivedDate,
-            note: existing.note,
           },
           after: {
             supplierId: updated.supplierId,
-            boxes: updated.boxes,
+            boxes: totalBoxes,
             receivedDate: updated.receivedDate,
-            note: updated.note,
+            lines: data.lines,
           },
         },
       },
@@ -211,8 +271,6 @@ export async function approveInbound(input: ApproveInput): Promise<InboundForm> 
   }
 
   return db.transaction(async (tx) => {
-    // Lock the form row for the duration of the transaction so two managers
-    // cannot approve the same pending form concurrently.
     const [existing] = await tx
       .select()
       .from(inboundForms)
@@ -228,6 +286,12 @@ export async function approveInbound(input: ApproveInput): Promise<InboundForm> 
       );
     }
 
+    // Load line items for this form.
+    const lines = await tx
+      .select()
+      .from(inboundFormLines)
+      .where(eq(inboundFormLines.formId, input.formId));
+
     const [updated] = await tx
       .update(inboundForms)
       .set({
@@ -239,17 +303,21 @@ export async function approveInbound(input: ApproveInput): Promise<InboundForm> 
       .where(eq(inboundForms.id, input.formId))
       .returning();
 
-    await recordMovement(
-      {
-        kind: "inbound",
-        boxesDelta: existing.boxes,
-        reason: existing.note ?? `Inbound form #${existing.id}`,
-        sourceFormKind: "inbound",
-        sourceFormId: existing.id,
-        actor: { id: input.actor.id },
-      },
-      tx,
-    );
+    // Record one stock movement per line item.
+    for (const line of lines) {
+      await recordMovement(
+        {
+          kind: "inbound",
+          boxesDelta: line.boxes,
+          reason: existing.note ?? `Inbound form #${existing.id}`,
+          sourceFormKind: "inbound",
+          sourceFormId: existing.id,
+          productId: line.productId,
+          actor: { id: input.actor.id },
+        },
+        tx,
+      );
+    }
 
     await log(
       {
@@ -257,7 +325,14 @@ export async function approveInbound(input: ApproveInput): Promise<InboundForm> 
         action: "form.approve",
         entityType: "inbound_form",
         entityId: String(input.formId),
-        payload: { boxes: existing.boxes, supplierId: existing.supplierId },
+        payload: {
+          boxes: existing.boxes,
+          supplierId: existing.supplierId,
+          lines: lines.map((l) => ({
+            productId: l.productId,
+            boxes: l.boxes,
+          })),
+        },
       },
       tx,
     );
@@ -325,6 +400,10 @@ export async function rejectInbound(input: RejectInput): Promise<InboundForm> {
 
 // ---------- read helpers ----------
 
+export type InboundFormLineWithProduct = InboundFormLine & {
+  productName: string;
+};
+
 export type InboundFormRow = InboundForm & {
   supplierName: string;
 };
@@ -370,7 +449,7 @@ export async function listPendingInboundForms(): Promise<InboundFormRow[]> {
 
 export async function getInboundForm(
   formId: bigint,
-): Promise<(InboundFormRow & { supplier: Supplier | null }) | null> {
+): Promise<(InboundFormRow & { supplier: Supplier | null; lines: InboundFormLineWithProduct[] }) | null> {
   const rows = await db
     .select({
       form: inboundForms,
@@ -382,10 +461,31 @@ export async function getInboundForm(
     .limit(1);
   if (rows.length === 0) return null;
   const r = rows[0];
+
+  // Load line items with product names.
+  const lines = await db
+    .select({
+      id: inboundFormLines.id,
+      formId: inboundFormLines.formId,
+      productId: inboundFormLines.productId,
+      boxes: inboundFormLines.boxes,
+      productName: products.name,
+    })
+    .from(inboundFormLines)
+    .innerJoin(products, eq(inboundFormLines.productId, products.id))
+    .where(eq(inboundFormLines.formId, formId));
+
   return {
     ...r.form,
     supplierName: r.supplier?.name ?? "(unknown)",
     supplier: r.supplier,
+    lines: lines.map((l) => ({
+      id: l.id,
+      formId: l.formId,
+      productId: l.productId,
+      boxes: l.boxes,
+      productName: l.productName,
+    })),
   };
 }
 
