@@ -16,6 +16,7 @@ describe("report CSV serializers", () => {
         reason: 'Damaged, "wet"\nwarehouse',
         sourceFormKind: null,
         sourceFormId: null,
+        productName: "Default Product",
         partyName: null,
         unitPricePesewas: null,
         totalPesewas: null,

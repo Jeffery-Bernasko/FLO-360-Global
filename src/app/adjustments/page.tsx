@@ -51,6 +51,7 @@ export default async function AdjustmentsPage() {
           <table className="min-w-full divide-y divide-surface-border text-sm">
             <thead>
               <tr className="bg-zinc-50/60">
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">Product</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">Reason</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">Note</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">By</th>
@@ -61,6 +62,9 @@ export default async function AdjustmentsPage() {
             <tbody className="divide-y divide-surface-border/60">
               {rows.map((r) => (
                 <tr key={String(r.id)} className="transition-colors hover:bg-zinc-50/50">
+                  <td className="px-4 py-3 text-zinc-700">
+                    {r.productName ?? "--"}
+                  </td>
                   <td className="px-4 py-3 font-medium text-zinc-900">
                     {r.reason ?? "Adjustment"}
                   </td>

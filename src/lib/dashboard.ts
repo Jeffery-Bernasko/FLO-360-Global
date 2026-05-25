@@ -1,7 +1,7 @@
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { inboundForms, outboundForms } from "@/db/schema";
-import { getCurrentStock } from "@/lib/stock-ledger";
+import { getCurrentStock, getStockByProductWithNames } from "@/lib/stock-ledger";
 
 export type PendingCounts = {
   inbound: number;
@@ -55,17 +55,21 @@ export async function getPendingCounts(opts?: {
   };
 }
 
+export type ProductStockRow = { productId: string; productName: string; total: number };
+
 export type ManagerDashboard = {
   currentStock: number;
   pending: PendingCounts;
+  productStocks: ProductStockRow[];
 };
 
 export async function getManagerDashboard(): Promise<ManagerDashboard> {
-  const [currentStock, pending] = await Promise.all([
+  const [currentStock, pending, productStocks] = await Promise.all([
     getCurrentStock(),
     getPendingCounts(),
+    getStockByProductWithNames(),
   ]);
-  return { currentStock, pending };
+  return { currentStock, pending, productStocks };
 }
 
 export type WorkerDashboard = {

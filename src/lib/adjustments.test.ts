@@ -1,30 +1,21 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => {
-  const state: {
-    stockSumRows: { total: string }[];
-  } = {
-    stockSumRows: [{ total: "100" }],
-  };
+const PRODUCT_ID = "00000000-0000-4000-a000-000000000001";
 
-  // Drizzle: `await tx.select({total: sql...}).from(stockMovements)` resolves
-  // directly. Make from() thenable.
-  const fromBuilder = {
-    where: vi.fn(() => fromBuilder),
-    then: (resolve: (rows: unknown) => void) => resolve(state.stockSumRows),
-  };
-  const select = vi.fn(() => ({ from: vi.fn(() => fromBuilder) }));
+const mocks = vi.hoisted(() => {
+  let stockForProduct = 100;
 
   const db = {
-    select,
     transaction: vi.fn(async (cb: (tx: unknown) => unknown) => cb(db)),
   };
 
   return {
-    state,
+    get stockForProduct() { return stockForProduct; },
+    set stockForProduct(v: number) { stockForProduct = v; },
     db,
     log: vi.fn().mockResolvedValue(undefined),
     recordMovement: vi.fn().mockResolvedValue({ id: 7n }),
+    getStockForProduct: vi.fn(async () => stockForProduct),
   };
 });
 
@@ -32,6 +23,7 @@ vi.mock("@/db", () => ({ db: mocks.db }));
 vi.mock("@/audit", () => ({ log: mocks.log }));
 vi.mock("@/lib/stock-ledger", () => ({
   recordMovement: mocks.recordMovement,
+  getStockForProduct: mocks.getStockForProduct,
 }));
 
 import {
@@ -43,9 +35,10 @@ const manager = { id: "mgr-1", role: "manager" as const };
 const worker = { id: "wkr-1", role: "worker" as const };
 
 beforeEach(() => {
-  mocks.state.stockSumRows = [{ total: "100" }];
+  mocks.stockForProduct = 100;
   mocks.log.mockClear();
   mocks.recordMovement.mockClear();
+  mocks.getStockForProduct.mockClear();
   mocks.db.transaction.mockClear();
 });
 
@@ -54,6 +47,7 @@ describe("recordAdjustment guards", () => {
     await expect(
       recordAdjustment({
         actor: worker,
+        productId: PRODUCT_ID,
         boxesDelta: -1,
         reason: "Damaged",
       }),
@@ -65,6 +59,7 @@ describe("recordAdjustment guards", () => {
     await expect(
       recordAdjustment({
         actor: manager,
+        productId: PRODUCT_ID,
         boxesDelta: 0,
         reason: "Damaged",
       }),
@@ -75,6 +70,7 @@ describe("recordAdjustment guards", () => {
     await expect(
       recordAdjustment({
         actor: manager,
+        productId: PRODUCT_ID,
         boxesDelta: 1.5,
         reason: "Damaged",
       }),
@@ -85,8 +81,20 @@ describe("recordAdjustment guards", () => {
     await expect(
       recordAdjustment({
         actor: manager,
+        productId: PRODUCT_ID,
         boxesDelta: -1,
         reason: "Surprise",
+      }),
+    ).rejects.toMatchObject({ code: "invalid" });
+  });
+
+  it("rejects missing productId", async () => {
+    await expect(
+      recordAdjustment({
+        actor: manager,
+        productId: "",
+        boxesDelta: -1,
+        reason: "Damaged",
       }),
     ).rejects.toMatchObject({ code: "invalid" });
   });
@@ -94,10 +102,12 @@ describe("recordAdjustment guards", () => {
 
 describe("recordAdjustment stock guard", () => {
   it("rejects a negative delta that would drive stock below zero", async () => {
-    mocks.state.stockSumRows = [{ total: "5" }];
+    mocks.stockForProduct = 5;
+    mocks.getStockForProduct.mockResolvedValueOnce(5);
     await expect(
       recordAdjustment({
         actor: manager,
+        productId: PRODUCT_ID,
         boxesDelta: -10,
         reason: "Damaged",
       }),
@@ -106,9 +116,11 @@ describe("recordAdjustment stock guard", () => {
   });
 
   it("allows a negative delta equal to current stock (lands at 0)", async () => {
-    mocks.state.stockSumRows = [{ total: "5" }];
+    mocks.stockForProduct = 5;
+    mocks.getStockForProduct.mockResolvedValueOnce(5);
     const result = await recordAdjustment({
       actor: manager,
+      productId: PRODUCT_ID,
       boxesDelta: -5,
       reason: "Damaged",
     });
@@ -118,10 +130,11 @@ describe("recordAdjustment stock guard", () => {
 
 describe("recordAdjustment happy path", () => {
   it("calls recordMovement with kind=adjustment and the right delta + reason", async () => {
-    mocks.state.stockSumRows = [{ total: "100" }];
+    mocks.getStockForProduct.mockResolvedValueOnce(100);
 
     const result = await recordAdjustment({
       actor: manager,
+      productId: PRODUCT_ID,
       boxesDelta: -3,
       reason: "Damaged",
       note: "Two boxes crushed in transit",
@@ -137,6 +150,7 @@ describe("recordAdjustment happy path", () => {
         kind: "adjustment",
         boxesDelta: -3,
         reason: "Damaged",
+        productId: PRODUCT_ID,
         actor: { id: manager.id },
       }),
       expect.anything(),
@@ -160,23 +174,25 @@ describe("recordAdjustment happy path", () => {
   });
 
   it("accepts positive deltas (e.g. recount up)", async () => {
-    mocks.state.stockSumRows = [{ total: "100" }];
+    mocks.getStockForProduct.mockResolvedValueOnce(100);
     const result = await recordAdjustment({
       actor: manager,
+      productId: PRODUCT_ID,
       boxesDelta: 5,
       reason: "Recount",
     });
     expect(result.resultingStock).toBe(105);
     expect(mocks.recordMovement).toHaveBeenCalledWith(
-      expect.objectContaining({ boxesDelta: 5, reason: "Recount" }),
+      expect.objectContaining({ boxesDelta: 5, reason: "Recount", productId: PRODUCT_ID }),
       expect.anything(),
     );
   });
 
   it("stores null note when not provided", async () => {
-    mocks.state.stockSumRows = [{ total: "100" }];
+    mocks.getStockForProduct.mockResolvedValueOnce(100);
     await recordAdjustment({
       actor: manager,
+      productId: PRODUCT_ID,
       boxesDelta: -1,
       reason: "Other",
     });
@@ -189,9 +205,10 @@ describe("recordAdjustment happy path", () => {
   });
 
   it("normalizes whitespace-only notes to null", async () => {
-    mocks.state.stockSumRows = [{ total: "100" }];
+    mocks.getStockForProduct.mockResolvedValueOnce(100);
     await recordAdjustment({
       actor: manager,
+      productId: PRODUCT_ID,
       boxesDelta: -1,
       reason: "Other",
       note: "   ",

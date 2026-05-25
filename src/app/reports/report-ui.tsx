@@ -42,17 +42,23 @@ export function ReportTabs() {
   );
 }
 
+export type ProductOption = { id: string; name: string };
+
 export function DateRangeForm({
   range,
   kind,
   showKind = false,
+  productId,
+  products,
 }: {
   range: DateRange;
   kind?: string;
   showKind?: boolean;
+  productId?: string;
+  products?: ProductOption[];
 }) {
   return (
-    <form className="mb-4 grid gap-3 rounded-xl bg-white p-4 ring-1 ring-surface-border sm:grid-cols-[1fr_1fr_auto_auto]">
+    <form className="mb-4 grid gap-3 rounded-xl bg-white p-4 ring-1 ring-surface-border sm:grid-cols-[1fr_1fr_auto_auto_auto]">
       <label className="block text-sm">
         <span className="font-medium text-zinc-700">From</span>
         <input
@@ -86,6 +92,21 @@ export function DateRangeForm({
           </select>
         </label>
       ) : null}
+      {products && products.length > 0 ? (
+        <label className="block text-sm">
+          <span className="font-medium text-zinc-700">Product</span>
+          <select
+            name="productId"
+            defaultValue={productId ?? ""}
+            className="mt-1.5 block w-full rounded-lg border border-surface-border px-3 py-2 text-sm focus-ring"
+          >
+            <option value="">All products</option>
+            {products.map((p) => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+        </label>
+      ) : null}
       <button
         type="submit"
         className="self-end rounded-lg bg-green-800 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-green-900 focus-ring"
@@ -100,12 +121,14 @@ export function ExportLinks({
   basePath,
   range,
   kind,
+  productId,
 }: {
   basePath: string;
   range: DateRange;
   kind?: "inbound" | "outbound" | "adjustment" | "all";
+  productId?: string;
 }) {
-  const params = reportSearchParams(range, kind);
+  const params = reportSearchParams(range, kind, productId);
   const csv = new URLSearchParams(params);
   csv.set("format", "csv");
   const pdf = new URLSearchParams(params);
@@ -154,6 +177,7 @@ export function PaginationLinks({
   pageSize,
   range,
   kind,
+  productId,
 }: {
   basePath: string;
   currentPage: number;
@@ -161,12 +185,13 @@ export function PaginationLinks({
   pageSize: number;
   range: DateRange;
   kind?: "inbound" | "outbound" | "adjustment" | "all";
+  productId?: string;
 }) {
   const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
   if (totalPages <= 1) return null;
 
   function href(page: number) {
-    const params = reportSearchParams(range, kind);
+    const params = reportSearchParams(range, kind, productId);
     params.set("page", String(page));
     return `${basePath}?${params.toString()}`;
   }

@@ -9,13 +9,22 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { FormField, FormCard } from "@/components/ui/form-field";
 import { Alert } from "@/components/ui/alert";
+import { ProductPicker } from "@/components/product-picker";
 import {
   recordAdjustmentAction,
   type ActionResult,
 } from "./actions";
 import { ADJUSTMENT_REASONS } from "@/lib/adjustments-shared";
 
-export function AdjustmentForm({ currentStock }: { currentStock: number }) {
+type ProductStock = { productId: string; productName: string; total: number };
+
+export function AdjustmentForm({
+  currentStock,
+  productStocks,
+}: {
+  currentStock: number;
+  productStocks: ProductStock[];
+}) {
   const [state, formAction, isPending] = useActionState<
     ActionResult<{ resultingStock: number }> | null,
     FormData
@@ -23,22 +32,41 @@ export function AdjustmentForm({ currentStock }: { currentStock: number }) {
   const router = useRouter();
   const [sign, setSign] = useState<"+" | "-">("-");
   const [magnitude, setMagnitude] = useState<number>(0);
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
 
   useEffect(() => {
     if (state?.ok) router.push("/adjustments");
   }, [state, router]);
 
-  const resultingStock = sign === "-" ? currentStock - magnitude : currentStock + magnitude;
+  const selectedProductStock =
+    selectedProductId != null
+      ? productStocks.find((p) => p.productId === selectedProductId)?.total ?? 0
+      : currentStock;
+
+  const resultingStock = sign === "-" ? selectedProductStock - magnitude : selectedProductStock + magnitude;
   const wouldGoNegative = resultingStock < 0;
 
   return (
     <form action={formAction}>
       <FormCard>
+        {/* Product picker */}
+        <FormField label="Product">
+          <ProductPicker
+            name="productId"
+            required
+            onSelect={(p) => setSelectedProductId(p?.id ?? null)}
+          />
+        </FormField>
+
         {/* Stock preview */}
         <div className="rounded-lg bg-zinc-50 p-4 ring-1 ring-surface-border">
           <div className="flex items-baseline justify-between text-sm">
-            <span className="text-zinc-500">Current stock</span>
-            <span className="font-mono font-medium text-zinc-900">{currentStock} boxes</span>
+            <span className="text-zinc-500">
+              {selectedProductId ? "Product stock" : "Total stock"}
+            </span>
+            <span className="font-mono font-medium text-zinc-900">
+              {selectedProductStock} boxes
+            </span>
           </div>
           {magnitude > 0 ? (
             <div className="mt-1.5 flex items-baseline justify-between text-sm">
@@ -134,7 +162,7 @@ export function AdjustmentForm({ currentStock }: { currentStock: number }) {
         <div className="flex gap-3 pt-1">
           <Button
             type="submit"
-            disabled={isPending || magnitude <= 0 || wouldGoNegative}
+            disabled={isPending || magnitude <= 0 || wouldGoNegative || !selectedProductId}
             className="flex-1"
             size="lg"
           >
