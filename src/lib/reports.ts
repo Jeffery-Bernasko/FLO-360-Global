@@ -3,7 +3,9 @@ import { db } from "@/db";
 import {
   customers,
   inboundForms,
+  inboundFormLines,
   outboundForms,
+  outboundFormLines,
   products,
   stockMovements,
   suppliers,
@@ -178,6 +180,7 @@ export async function stockMovementReport(
       reason: stockMovements.reason,
       sourceFormKind: stockMovements.sourceFormKind,
       sourceFormId: stockMovements.sourceFormId,
+      productId: stockMovements.productId,
       actorName: users.name,
       productName: products.name,
     })
@@ -211,8 +214,6 @@ export async function stockMovementReport(
           .select({
             id: outboundForms.id,
             customerName: customers.name,
-            unitPricePesewas: outboundForms.unitPricePesewas,
-            totalPesewas: outboundForms.totalPesewas,
           })
           .from(outboundForms)
           .leftJoin(customers, eq(customers.id, outboundForms.customerId))
@@ -221,14 +222,30 @@ export async function stockMovementReport(
           [] as {
             id: bigint;
             customerName: string | null;
-            unitPricePesewas: number | null;
-            totalPesewas: number | null;
           }[],
         ),
   ]);
 
+  // Load outbound line items for unit price data.
+  const outboundLineRows =
+    outboundIds.length > 0
+      ? await db
+          .select({
+            formId: outboundFormLines.formId,
+            productId: outboundFormLines.productId,
+            unitPricePesewas: outboundFormLines.unitPricePesewas,
+            boxes: outboundFormLines.boxes,
+          })
+          .from(outboundFormLines)
+          .where(inArray(outboundFormLines.formId, outboundIds))
+      : [];
+
   const inboundById = new Map(inboundRows.map((r) => [String(r.id), r]));
   const outboundById = new Map(outboundRows.map((r) => [String(r.id), r]));
+  // Key: "formId:productId"
+  const outboundLineMap = new Map(
+    outboundLineRows.map((l) => [`${l.formId}:${l.productId}`, l]),
+  );
 
   let runningBalance = 0;
   const enriched: StockMovementRow[] = rows.map((r) => {
@@ -244,8 +261,9 @@ export async function stockMovementReport(
     } else if (r.sourceFormKind === "outbound" && r.sourceFormId != null) {
       const o = outboundById.get(String(r.sourceFormId));
       partyName = o?.customerName ?? null;
-      unitPricePesewas = o?.unitPricePesewas ?? null;
-      totalPesewas = o?.totalPesewas ?? null;
+      const line = outboundLineMap.get(`${r.sourceFormId}:${r.productId}`);
+      unitPricePesewas = line?.unitPricePesewas ?? null;
+      totalPesewas = line ? line.boxes * line.unitPricePesewas : null;
     }
 
     return {
@@ -290,14 +308,14 @@ export async function perCustomerReport(
       customerId: customers.id,
       customerName: customers.name,
       customerLocation: customers.location,
-      totalBoxes: sql<string>`COALESCE(SUM(${outboundForms.boxes}), 0)`.as(
+      totalBoxes: sql<string>`COALESCE(SUM(${outboundFormLines.boxes}), 0)`.as(
         "total_boxes",
       ),
       totalPesewas:
-        sql<string>`COALESCE(SUM(${outboundForms.totalPesewas}), 0)`.as(
+        sql<string>`COALESCE(SUM(${outboundFormLines.boxes} * ${outboundFormLines.unitPricePesewas}), 0)`.as(
           "total_pesewas",
         ),
-      dispatchCount: sql<string>`COUNT(${outboundForms.id})`.as(
+      dispatchCount: sql<string>`COUNT(DISTINCT ${outboundForms.id})`.as(
         "dispatch_count",
       ),
       lastDispatchAt: sql<Date | null>`MAX(${outboundForms.decidedAt})`.as(
@@ -306,6 +324,7 @@ export async function perCustomerReport(
     })
     .from(outboundForms)
     .innerJoin(customers, eq(customers.id, outboundForms.customerId))
+    .innerJoin(outboundFormLines, eq(outboundFormLines.formId, outboundForms.id))
     .where(
       and(
         eq(outboundForms.status, "approved"),
@@ -348,10 +367,10 @@ export async function perSupplierReport(
       supplierId: suppliers.id,
       supplierName: suppliers.name,
       country: suppliers.country,
-      totalBoxes: sql<string>`COALESCE(SUM(${inboundForms.boxes}), 0)`.as(
+      totalBoxes: sql<string>`COALESCE(SUM(${inboundFormLines.boxes}), 0)`.as(
         "total_boxes",
       ),
-      shipmentCount: sql<string>`COUNT(${inboundForms.id})`.as(
+      shipmentCount: sql<string>`COUNT(DISTINCT ${inboundForms.id})`.as(
         "shipment_count",
       ),
       lastReceivedAt: sql<Date | null>`MAX(${inboundForms.decidedAt})`.as(
@@ -360,6 +379,7 @@ export async function perSupplierReport(
     })
     .from(inboundForms)
     .innerJoin(suppliers, eq(suppliers.id, inboundForms.supplierId))
+    .innerJoin(inboundFormLines, eq(inboundFormLines.formId, inboundForms.id))
     .where(
       and(
         eq(inboundForms.status, "approved"),

@@ -48,7 +48,7 @@ export default async function InboxPage() {
       party: f.customerName,
       boxes: f.boxes,
       date: f.dispatchDate,
-      total: f.totalPesewas ?? f.boxes * f.unitPricePesewas,
+      total: f.totalPesewas,
     })),
   ];
 

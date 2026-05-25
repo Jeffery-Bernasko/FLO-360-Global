@@ -150,19 +150,10 @@ export async function submitOutbound(
       }
     }
 
-    const totalBoxes = data.lines.reduce((s, l) => s + l.boxes, 0);
-    const totalPesewas = data.lines.reduce(
-      (s, l) => s + l.boxes * l.unitPricePesewas,
-      0,
-    );
-
     const [created] = await tx
       .insert(outboundForms)
       .values({
         customerId: data.customerId,
-        boxes: totalBoxes,
-        unitPricePesewas: data.lines[0].unitPricePesewas,
-        totalPesewas,
         dispatchDate: data.dispatchDate,
         note: data.note ?? null,
         status: "pending",
@@ -188,8 +179,6 @@ export async function submitOutbound(
         entityId: String(created.id),
         payload: {
           customerId: created.customerId,
-          totalBoxes,
-          totalPesewas,
           dispatchDate: created.dispatchDate,
           lines: data.lines.map((l) => ({
             productId: l.productId,
@@ -265,12 +254,6 @@ export async function editAndResubmitOutbound(
       data.lines.map((l) => l.productId),
     );
 
-    const totalBoxes = data.lines.reduce((s, l) => s + l.boxes, 0);
-    const totalPesewas = data.lines.reduce(
-      (s, l) => s + l.boxes * l.unitPricePesewas,
-      0,
-    );
-
     // Delete old lines.
     await tx
       .delete(outboundFormLines)
@@ -290,9 +273,6 @@ export async function editAndResubmitOutbound(
       .update(outboundForms)
       .set({
         customerId: data.customerId,
-        boxes: totalBoxes,
-        unitPricePesewas: data.lines[0].unitPricePesewas,
-        totalPesewas,
         dispatchDate: data.dispatchDate,
         note: data.note ?? null,
         status: "pending",
@@ -487,7 +467,7 @@ export async function approveOutbound(input: ApproveOutboundInput): Promise<Outb
         payload: {
           customerId: existing.customerId,
           invoiceNumber,
-          totalPesewas: existing.totalPesewas,
+          totalPesewas: lines.reduce((s, l) => s + l.boxes * l.unitPricePesewas, 0),
           lines: lines.map((l) => ({
             productId: l.productId,
             productName: l.productName,
@@ -563,15 +543,18 @@ export async function rejectOutbound(input: RejectOutboundInput): Promise<Outbou
 // ---------- read helpers ----------
 
 export type OutboundFormRow = OutboundForm & {
+  /** Computed from line items. */
+  boxes: number;
+  /** Computed from line items. */
+  totalPesewas: number;
   customerName: string;
 };
 
 const formWithCustomerColumns = {
   id: outboundForms.id,
   customerId: outboundForms.customerId,
-  boxes: outboundForms.boxes,
-  unitPricePesewas: outboundForms.unitPricePesewas,
-  totalPesewas: outboundForms.totalPesewas,
+  boxes: sql<number>`COALESCE((SELECT SUM(boxes) FROM outbound_form_lines WHERE form_id = ${outboundForms.id}), 0)`.mapWith(Number).as("boxes"),
+  totalPesewas: sql<number>`COALESCE((SELECT SUM(boxes * unit_price_pesewas) FROM outbound_form_lines WHERE form_id = ${outboundForms.id}), 0)`.mapWith(Number).as("total_pesewas"),
   dispatchDate: outboundForms.dispatchDate,
   note: outboundForms.note,
   status: outboundForms.status,
@@ -647,6 +630,8 @@ export async function getOutboundForm(
 
   return {
     ...r.form,
+    boxes: lines.reduce((s, l) => s + l.boxes, 0),
+    totalPesewas: lines.reduce((s, l) => s + l.boxes * l.unitPricePesewas, 0),
     customerName: r.customer?.name ?? "(unknown)",
     customer: r.customer,
     lines,
