@@ -61,7 +61,7 @@ export default async function OutboundListPage() {
                   <td className="px-4 py-3"><StatusBadge status={f.status} /></td>
                   <td className="px-4 py-3 text-right font-mono text-zinc-700">{f.boxes}</td>
                   <td className="px-4 py-3 text-right font-mono text-zinc-700">
-                    {formatGhs(f.totalPesewas ?? f.boxes * f.unitPricePesewas)}
+                    {formatGhs(f.totalPesewas)}
                   </td>
                   <td className="px-4 py-3 text-zinc-500">{f.dispatchDate}</td>
                   <td className="px-4 py-3">

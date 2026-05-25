@@ -6,9 +6,9 @@ import { requireUser } from "@/auth-server";
 import {
   OutboundFormError,
   editAndResubmitOutbound,
-  quoteOutbound,
   submitOutbound,
 } from "@/lib/outbound-forms";
+import { getStockForProduct } from "@/lib/stock-ledger";
 import { parseGhsToPesewas } from "@/lib/money";
 
 export type ActionResult<T> =
@@ -21,14 +21,23 @@ function toResult<T>(err: unknown): ActionResult<T> {
   return { ok: false, error: "Something went wrong. Please try again." };
 }
 
-function readPriceFromForm(formData: FormData): number {
-  // The form sends a plain decimal string in GHS (e.g. "50" or "50.00").
-  const raw = String(formData.get("unitPriceGhs") ?? "");
-  const pesewas = parseGhsToPesewas(raw);
-  if (pesewas == null) {
-    throw new OutboundFormError("invalid", "Unit price must be a valid GHS amount.");
+function readLines(formData: FormData) {
+  const lines: { productId: string; boxes: number; unitPricePesewas: number }[] = [];
+  for (let i = 0; ; i++) {
+    const productId = formData.get(`lines[${i}].productId`);
+    if (productId == null) break;
+    const boxes = Number(formData.get(`lines[${i}].boxes`) ?? "0");
+    const priceGhs = String(formData.get(`lines[${i}].unitPriceGhs`) ?? "");
+    const pesewas = parseGhsToPesewas(priceGhs);
+    if (pesewas == null) {
+      throw new OutboundFormError(
+        "invalid",
+        `Unit price for line ${i + 1} must be a valid GHS amount.`,
+      );
+    }
+    lines.push({ productId: String(productId), boxes, unitPricePesewas: pesewas });
   }
-  return pesewas;
+  return lines;
 }
 
 export async function submitOutboundAction(
@@ -37,13 +46,12 @@ export async function submitOutboundAction(
 ): Promise<ActionResult<{ id: string }>> {
   try {
     const actor = await requireUser();
-    const unitPricePesewas = readPriceFromForm(formData);
+    const lines = readLines(formData);
 
     const created = await submitOutbound({
       actor,
       customerId: String(formData.get("customerId") ?? ""),
-      boxes: String(formData.get("boxes") ?? ""),
-      unitPricePesewas,
+      lines,
       dispatchDate: String(formData.get("dispatchDate") ?? ""),
       note: String(formData.get("note") ?? "") || null,
     });
@@ -66,14 +74,13 @@ export async function editAndResubmitOutboundAction(
     const actor = await requireUser();
     const formId = BigInt(String(formData.get("formId") ?? "0"));
     if (!formId) return { ok: false, error: "Missing form id." };
-    const unitPricePesewas = readPriceFromForm(formData);
+    const lines = readLines(formData);
 
     const updated = await editAndResubmitOutbound({
       actor,
       formId,
       customerId: String(formData.get("customerId") ?? ""),
-      boxes: String(formData.get("boxes") ?? ""),
-      unitPricePesewas,
+      lines,
       dispatchDate: String(formData.get("dispatchDate") ?? ""),
       note: String(formData.get("note") ?? "") || null,
     });
@@ -89,12 +96,11 @@ export async function editAndResubmitOutboundAction(
   }
 }
 
-export async function quoteOutboundStockAction(boxes: number): Promise<{
-  currentStock: number;
-  ok: boolean;
-}> {
+export async function quoteProductStockAction(
+  productId: string,
+): Promise<number> {
   await requireUser();
-  return quoteOutbound({ boxes });
+  return getStockForProduct(productId);
 }
 
 export async function redirectToOutboundList(): Promise<void> {

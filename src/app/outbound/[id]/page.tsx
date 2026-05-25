@@ -10,7 +10,6 @@ import { LinkButton } from "@/components/ui/button";
 import { DetailField, DetailGrid } from "@/components/ui/detail-field";
 import { IconFile } from "@/components/icons";
 import { formatGhs, formatGhsPlain } from "@/lib/money";
-import { getCurrentStock } from "@/lib/stock-ledger";
 import { getAttachmentUrl } from "@/lib/attachments";
 import {
   formatInvoiceLabel,
@@ -40,12 +39,9 @@ export default async function OutboundDetailPage({ params }: PageProps) {
   const isOwnerAndRejected =
     form.status === "rejected" && form.createdBy === me.id;
 
-  const [currentStock, invoiceUrl] = await Promise.all([
-    isOwnerAndRejected ? getCurrentStock() : Promise.resolve(0),
-    form.invoicePdfKey ? getAttachmentUrl(form.invoicePdfKey) : null,
-  ]);
-
-  const totalPesewas = form.totalPesewas ?? form.boxes * form.unitPricePesewas;
+  const invoiceUrl = form.invoicePdfKey
+    ? await getAttachmentUrl(form.invoicePdfKey)
+    : null;
 
   return (
     <AppShell user={me}>
@@ -57,10 +53,41 @@ export default async function OutboundDetailPage({ params }: PageProps) {
         />
 
         <Card>
+          {/* Line items table */}
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-surface-border text-sm">
+              <thead>
+                <tr className="bg-zinc-50/60">
+                  <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">Product</th>
+                  <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wider text-zinc-500">Boxes</th>
+                  <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wider text-zinc-500">Unit price</th>
+                  <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wider text-zinc-500">Subtotal</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-surface-border/60">
+                {form.lines.map((line) => (
+                  <tr key={String(line.id)}>
+                    <td className="px-3 py-2 font-medium text-zinc-900">{line.productName}</td>
+                    <td className="px-3 py-2 text-right font-mono text-zinc-700">{line.boxes}</td>
+                    <td className="px-3 py-2 text-right font-mono text-zinc-700">{formatGhs(line.unitPricePesewas)}</td>
+                    <td className="px-3 py-2 text-right font-mono text-zinc-700">{formatGhs(line.boxes * line.unitPricePesewas)}</td>
+                  </tr>
+                ))}
+                <tr className="bg-zinc-50/60 font-semibold">
+                  <td className="px-3 py-2 text-zinc-700">Total</td>
+                  <td className="px-3 py-2 text-right font-mono text-zinc-900">
+                    {form.lines.reduce((s, l) => s + l.boxes, 0)}
+                  </td>
+                  <td className="px-3 py-2" />
+                  <td className="px-3 py-2 text-right font-mono text-zinc-900">
+                    {formatGhs(form.totalPesewas)}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
           <DetailGrid>
-            <DetailField label="Boxes" value={`${form.boxes}`} mono />
-            <DetailField label="Unit price" value={formatGhs(form.unitPricePesewas)} mono />
-            <DetailField label="Total" value={formatGhs(totalPesewas)} mono />
             <DetailField label="Dispatch date" value={form.dispatchDate} />
             {form.note ? <DetailField label="Note" value={form.note} /> : null}
             {form.status === "approved" && form.invoiceNumber ? (
@@ -109,14 +136,16 @@ export default async function OutboundDetailPage({ params }: PageProps) {
               mode={{
                 kind: "edit",
                 formId: String(form.id),
-                currentStock,
                 defaults: {
                   customer: {
                     id: form.customerId,
                     name: form.customerName,
                   },
-                  boxes: form.boxes,
-                  unitPriceGhs: formatGhsPlain(form.unitPricePesewas),
+                  lines: form.lines.map((l) => ({
+                    product: { id: l.productId, name: l.productName },
+                    boxes: l.boxes,
+                    unitPriceGhs: formatGhsPlain(l.unitPricePesewas),
+                  })),
                   dispatchDate: form.dispatchDate,
                   note: form.note,
                 },

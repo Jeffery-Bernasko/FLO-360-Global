@@ -32,6 +32,13 @@ const styles = StyleSheet.create({
   footer: { marginTop: 40, fontSize: 9, color: "#94a3b8", textAlign: "center" },
 });
 
+export type InvoiceLineItem = {
+  productName: string;
+  boxes: number;
+  unitPricePesewas: number;
+  subtotalPesewas: number;
+};
+
 export type InvoiceData = {
   invoiceNumber: string;
   date: Date;
@@ -42,12 +49,8 @@ export type InvoiceData = {
     phone?: string | null;
     location?: string | null;
   };
-  lineItem: {
-    description: string;
-    boxes: number;
-    unitPricePesewas: number;
-    totalPesewas: number;
-  };
+  lineItems: InvoiceLineItem[];
+  totalPesewas: number;
 };
 
 export function InvoiceDocument({ data }: { data: InvoiceData }) {
@@ -84,21 +87,23 @@ export function InvoiceDocument({ data }: { data: InvoiceData }) {
 
         <View style={styles.table}>
           <View style={[styles.row, { backgroundColor: "#f8fafc" }]}>
-            <Text style={styles.cellDescription}>Description</Text>
+            <Text style={styles.cellDescription}>Product</Text>
             <Text style={styles.cellQty}>Boxes</Text>
             <Text style={styles.cellPrice}>Unit price</Text>
-            <Text style={styles.cellTotal}>Total</Text>
+            <Text style={styles.cellTotal}>Subtotal</Text>
           </View>
-          <View style={styles.row}>
-            <Text style={styles.cellDescription}>{data.lineItem.description}</Text>
-            <Text style={styles.cellQty}>{data.lineItem.boxes}</Text>
-            <Text style={styles.cellPrice}>
-              {formatGhs(data.lineItem.unitPricePesewas)}
-            </Text>
-            <Text style={styles.cellTotal}>
-              {formatGhs(data.lineItem.totalPesewas)}
-            </Text>
-          </View>
+          {data.lineItems.map((item, i) => (
+            <View style={styles.row} key={i}>
+              <Text style={styles.cellDescription}>{item.productName}</Text>
+              <Text style={styles.cellQty}>{item.boxes}</Text>
+              <Text style={styles.cellPrice}>
+                {formatGhs(item.unitPricePesewas)}
+              </Text>
+              <Text style={styles.cellTotal}>
+                {formatGhs(item.subtotalPesewas)}
+              </Text>
+            </View>
+          ))}
         </View>
 
         <View style={styles.totalsRow}>
@@ -106,12 +111,12 @@ export function InvoiceDocument({ data }: { data: InvoiceData }) {
             <View style={styles.totalsLine}>
               <Text style={styles.totalsLabel}>Subtotal</Text>
               <Text style={styles.totalsAmount}>
-                {formatGhs(data.lineItem.totalPesewas)}
+                {formatGhs(data.totalPesewas)}
               </Text>
             </View>
             <View style={[styles.totalsLine, styles.grandTotal]}>
               <Text>Total due</Text>
-              <Text>{formatGhs(data.lineItem.totalPesewas)}</Text>
+              <Text>{formatGhs(data.totalPesewas)}</Text>
             </View>
           </View>
         </View>

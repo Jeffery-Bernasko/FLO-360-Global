@@ -23,16 +23,17 @@ const mocks = vi.hoisted(() => {
   let lastSelectMode: "supplier" | "product" | "form" | "lines" = "supplier";
 
   const select = vi.fn((fields?: unknown) => {
-    // select with specific fields = supplier or product lookup; select() = form
-    lastSelectMode = fields ? "supplier" : "form";
+    if (!fields) {
+      lastSelectMode = "form";
+    }
     return {
-      from: vi.fn((table?: unknown) => {
-        // Distinguish between form lines and forms based on subsequent calls
+      from: vi.fn(() => {
         return {
-          where: vi.fn(() => ({
-            limit: vi.fn(async () => {
+          where: vi.fn(() => {
+            // Return an object that is both thenable (for `await select().from().where()`)
+            // and has `.limit()` / `.for()` for chained queries.
+            const directResult = async () => {
               if (lastSelectMode === "supplier") {
-                // Alternate between supplier and product lookups
                 const result = state.supplierLookup;
                 lastSelectMode = "product";
                 return result;
@@ -40,12 +41,31 @@ const mocks = vi.hoisted(() => {
               if (lastSelectMode === "product") {
                 return state.productLookup;
               }
-              return state.selectFormReturning;
-            }),
-            for: vi.fn(() => ({
-              limit: vi.fn(async () => state.selectFormReturning),
-            })),
-          })),
+              // "form" mode without .limit()/.for() = line items query
+              return state.selectLinesReturning;
+            };
+            return {
+              then: (resolve: (v: unknown) => void, reject?: (e: unknown) => void) =>
+                directResult().then(resolve, reject),
+              limit: vi.fn(async () => {
+                if (fields) {
+                  if (lastSelectMode === "product") {
+                    lastSelectMode = "supplier";
+                    return state.productLookup;
+                  }
+                  lastSelectMode = "product";
+                  return state.supplierLookup;
+                }
+                if (lastSelectMode === "product") {
+                  return state.productLookup;
+                }
+                return state.selectFormReturning;
+              }),
+              for: vi.fn(() => ({
+                limit: vi.fn(async () => state.selectFormReturning),
+              })),
+            };
+          }),
           innerJoin: vi.fn(() => ({
             where: vi.fn(async () => state.selectLinesReturning),
           })),
@@ -82,6 +102,9 @@ const mocks = vi.hoisted(() => {
 
   return {
     state,
+    resetSelectMode: () => {
+      lastSelectMode = "supplier";
+    },
     db,
     log: vi.fn().mockResolvedValue(undefined),
     recordMovement: vi.fn().mockResolvedValue({ id: 99n }),
@@ -113,6 +136,7 @@ beforeEach(() => {
   mocks.state.selectFormReturning = [];
   mocks.state.selectLinesReturning = [];
   mocks.state.updateReturning = [];
+  mocks.resetSelectMode();
   mocks.log.mockClear();
   mocks.recordMovement.mockClear();
   mocks.db.transaction.mockClear();
@@ -171,6 +195,7 @@ describe("submitInbound", () => {
     await expect(submitInbound(validInput)).rejects.toMatchObject({
       code: "invalid_supplier",
     });
+    mocks.resetSelectMode();
     mocks.state.supplierLookup = [
       { id: "supplier-1", isActive: false },
     ];
@@ -378,6 +403,7 @@ describe("editAndResubmitInbound", () => {
       }),
     ).rejects.toMatchObject({ code: "invalid_supplier" });
 
+    mocks.resetSelectMode();
     mocks.state.supplierLookup = [
       { id: validInput.supplierId, isActive: false },
     ];

@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => {
   // Drizzle: `await tx.select({total: sql...}).from(stockMovements)` resolves
   // directly. Make from() thenable.
   const fromBuilder = {
+    where: vi.fn(() => fromBuilder),
     then: (resolve: (rows: unknown) => void) => resolve(state.stockSumRows),
   };
   const select = vi.fn(() => ({ from: vi.fn(() => fromBuilder) }));

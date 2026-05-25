@@ -11,7 +11,7 @@ import { DetailField, DetailGrid } from "@/components/ui/detail-field";
 import { IconFile } from "@/components/icons";
 import { getOutboundForm, formatInvoiceLabel } from "@/lib/outbound-forms";
 import { getAttachmentUrl } from "@/lib/attachments";
-import { getCurrentStock } from "@/lib/stock-ledger";
+import { getStockForProduct } from "@/lib/stock-ledger";
 import { formatGhs } from "@/lib/money";
 import { OutboundDecisionButtons } from "../decision-buttons";
 
@@ -32,13 +32,26 @@ export default async function ApproveOutboundDetailPage({ params }: PageProps) {
   const form = await getOutboundForm(BigInt(id));
   if (!form) notFound();
 
-  const [invoiceUrl, currentStock] = await Promise.all([
-    form.invoicePdfKey ? getAttachmentUrl(form.invoicePdfKey) : null,
-    getCurrentStock(),
-  ]);
+  // Load per-product stock for the approval view.
+  const productStockMap = new Map<string, number>();
+  if (form.status === "pending") {
+    await Promise.all(
+      form.lines.map(async (line) => {
+        if (!productStockMap.has(line.productId)) {
+          const stock = await getStockForProduct(line.productId);
+          productStockMap.set(line.productId, stock);
+        }
+      }),
+    );
+  }
 
-  const totalPesewas = form.totalPesewas ?? form.boxes * form.unitPricePesewas;
-  const insufficient = form.status === "pending" && form.boxes > currentStock;
+  const invoiceUrl = form.invoicePdfKey
+    ? await getAttachmentUrl(form.invoicePdfKey)
+    : null;
+
+  const insufficient = form.status === "pending" && form.lines.some(
+    (l) => l.boxes > (productStockMap.get(l.productId) ?? 0),
+  );
 
   return (
     <AppShell user={me}>
@@ -50,18 +63,58 @@ export default async function ApproveOutboundDetailPage({ params }: PageProps) {
         />
 
         <Card>
+          {/* Line items table with stock info */}
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-surface-border text-sm">
+              <thead>
+                <tr className="bg-zinc-50/60">
+                  <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">Product</th>
+                  <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wider text-zinc-500">Boxes</th>
+                  <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wider text-zinc-500">Unit price</th>
+                  <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wider text-zinc-500">Subtotal</th>
+                  {form.status === "pending" ? (
+                    <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wider text-zinc-500">Stock</th>
+                  ) : null}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-surface-border/60">
+                {form.lines.map((line) => {
+                  const stock = productStockMap.get(line.productId) ?? 0;
+                  const low = form.status === "pending" && line.boxes > stock;
+                  return (
+                    <tr key={String(line.id)}>
+                      <td className="px-3 py-2 font-medium text-zinc-900">{line.productName}</td>
+                      <td className={`px-3 py-2 text-right font-mono ${low ? "text-rose-600 font-medium" : "text-zinc-700"}`}>
+                        {line.boxes}
+                      </td>
+                      <td className="px-3 py-2 text-right font-mono text-zinc-700">{formatGhs(line.unitPricePesewas)}</td>
+                      <td className="px-3 py-2 text-right font-mono text-zinc-700">{formatGhs(line.boxes * line.unitPricePesewas)}</td>
+                      {form.status === "pending" ? (
+                        <td className={`px-3 py-2 text-right font-mono ${low ? "text-rose-600 font-medium" : "text-zinc-500"}`}>
+                          {stock} avail
+                        </td>
+                      ) : null}
+                    </tr>
+                  );
+                })}
+                <tr className="bg-zinc-50/60 font-semibold">
+                  <td className="px-3 py-2 text-zinc-700">Total</td>
+                  <td className="px-3 py-2 text-right font-mono text-zinc-900">
+                    {form.lines.reduce((s, l) => s + l.boxes, 0)}
+                  </td>
+                  <td className="px-3 py-2" />
+                  <td className="px-3 py-2 text-right font-mono text-zinc-900">
+                    {formatGhs(form.totalPesewas)}
+                  </td>
+                  {form.status === "pending" ? <td className="px-3 py-2" /> : null}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
           <DetailGrid>
-            <DetailField label="Boxes" value={`${form.boxes}`} mono />
-            <DetailField label="Unit price" value={formatGhs(form.unitPricePesewas)} mono />
-            <DetailField label="Total" value={formatGhs(totalPesewas)} mono />
             <DetailField label="Dispatch date" value={form.dispatchDate} />
             {form.note ? <DetailField label="Note" value={form.note} /> : null}
-            {form.status === "pending" ? (
-              <DetailField
-                label="After approval"
-                value={`${currentStock - form.boxes} boxes (currently ${currentStock})`}
-              />
-            ) : null}
             {form.status === "approved" && form.invoiceNumber ? (
               <DetailField
                 label="Invoice"

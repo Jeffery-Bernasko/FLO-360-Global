@@ -1,4 +1,4 @@
-import { asc, desc, eq } from "drizzle-orm";
+import { asc, desc, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import {
@@ -71,6 +71,25 @@ function parseSubmit(input: SubmitInboundInput) {
   return parsed.data;
 }
 
+async function validateProducts(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  productIds: string[],
+): Promise<void> {
+  const rows = await tx
+    .select({ id: products.id, isActive: products.isActive })
+    .from(products)
+    .where(inArray(products.id, productIds))
+    .limit(productIds.length);
+  const productsById = new Map(rows.map((row) => [row.id, row]));
+
+  for (const productId of productIds) {
+    const product = productsById.get(productId);
+    if (!product || !product.isActive) {
+      throw new InboundFormError("invalid_product", "Product not found or inactive.");
+    }
+  }
+}
+
 export async function submitInbound(input: SubmitInboundInput): Promise<InboundForm> {
   const data = parseSubmit(input);
   const totalBoxes = data.lines.reduce((sum, l) => sum + l.boxes, 0);
@@ -87,16 +106,10 @@ export async function submitInbound(input: SubmitInboundInput): Promise<InboundF
     }
 
     // Verify all products exist and are active.
-    for (const line of data.lines) {
-      const productRows = await tx
-        .select({ id: products.id, isActive: products.isActive })
-        .from(products)
-        .where(eq(products.id, line.productId))
-        .limit(1);
-      if (productRows.length === 0 || !productRows[0].isActive) {
-        throw new InboundFormError("invalid_product", "Product not found or inactive.");
-      }
-    }
+    await validateProducts(
+      tx,
+      data.lines.map((line) => line.productId),
+    );
 
     const [created] = await tx
       .insert(inboundForms)
@@ -191,16 +204,10 @@ export async function editAndResubmitInbound(
       throw new InboundFormError("invalid_supplier", "Supplier not found or inactive.");
     }
 
-    for (const line of data.lines) {
-      const productRows = await tx
-        .select({ id: products.id, isActive: products.isActive })
-        .from(products)
-        .where(eq(products.id, line.productId))
-        .limit(1);
-      if (productRows.length === 0 || !productRows[0].isActive) {
-        throw new InboundFormError("invalid_product", "Product not found or inactive.");
-      }
-    }
+    await validateProducts(
+      tx,
+      data.lines.map((line) => line.productId),
+    );
 
     const [updated] = await tx
       .update(inboundForms)
