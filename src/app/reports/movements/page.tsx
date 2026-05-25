@@ -3,6 +3,7 @@ import { ForbiddenError, UnauthorizedError } from "@/auth-helpers";
 import { requireManager } from "@/auth-server";
 import { AppShell } from "@/components/app-shell";
 import { formatGhs } from "@/lib/money";
+import { listProducts } from "@/lib/products";
 import { ReportError, parseReportParams, stockMovementReport } from "@/lib/reports";
 import {
   DateRangeForm,
@@ -17,13 +18,14 @@ import {
 
 const PAGE_SIZE = 50;
 
-type SearchParams = Promise<{ from?: string; to?: string; kind?: string; page?: string }>;
+type SearchParams = Promise<{ from?: string; to?: string; kind?: string; productId?: string; page?: string }>;
 
 function toUrlSearchParams(params: Awaited<SearchParams>) {
   const search = new URLSearchParams();
   if (params.from) search.set("from", params.from);
   if (params.to) search.set("to", params.to);
   if (params.kind) search.set("kind", params.kind);
+  if (params.productId) search.set("productId", params.productId);
   return search;
 }
 
@@ -46,6 +48,7 @@ export default async function StockMovementReportPage({
   const filter = parseReportParams(toUrlSearchParams(params));
   let rows: Awaited<ReturnType<typeof stockMovementReport>>;
   let error: string | null = null;
+  const allProducts = await listProducts(me);
   try {
     rows = await stockMovementReport(filter);
   } catch (err) {
@@ -53,6 +56,7 @@ export default async function StockMovementReportPage({
     rows = [];
     error = err.message;
   }
+  const productOptions = allProducts.map((p) => ({ id: p.id, name: p.name }));
   const page = parsePage(params.page, rows.length, PAGE_SIZE);
   const pageRows = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
@@ -63,8 +67,8 @@ export default async function StockMovementReportPage({
         description="Every approved movement in chronological order, including adjustments."
       />
       <ReportTabs />
-      <DateRangeForm range={filter} kind={filter.kind} showKind />
-      <ExportLinks basePath="/reports/movements" range={filter} kind={filter.kind} />
+      <DateRangeForm range={filter} kind={filter.kind} showKind productId={filter.productId} products={productOptions} />
+      <ExportLinks basePath="/reports/movements" range={filter} kind={filter.kind} productId={filter.productId} />
       {error ? (
         <ReportErrorMessage message={error} />
       ) : rows.length === 0 ? (
@@ -77,6 +81,7 @@ export default async function StockMovementReportPage({
                 <tr className="bg-zinc-50/60">
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">Date</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">Kind</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">Product</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">Party</th>
                   <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-zinc-500">Boxes</th>
                   <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-zinc-500">Total</th>
@@ -90,6 +95,7 @@ export default async function StockMovementReportPage({
                       {row.createdAt.toLocaleDateString("en-GH")}
                     </td>
                     <td className="px-4 py-3 capitalize text-zinc-700">{row.kind}</td>
+                    <td className="px-4 py-3 text-zinc-700">{row.productName ?? "--"}</td>
                     <td className="px-4 py-3">
                       <p className="font-medium text-zinc-900">
                         {row.partyName ?? "--"}
@@ -124,6 +130,7 @@ export default async function StockMovementReportPage({
             pageSize={PAGE_SIZE}
             range={filter}
             kind={filter.kind}
+            productId={filter.productId}
           />
         </>
       )}

@@ -41,7 +41,7 @@ export default async function HomePage() {
 }
 
 async function ManagerDashboard() {
-  const { currentStock, pending } = await getManagerDashboard();
+  const { currentStock, pending, productStocks } = await getManagerDashboard();
   const outOfStock = currentStock <= 0;
 
   return (
@@ -92,6 +92,35 @@ async function ManagerDashboard() {
           </div>
         ) : null}
       </div>
+
+      {/* Per-product stock breakdown */}
+      {productStocks.length > 0 ? (
+        <section>
+          <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-zinc-400">
+            Stock by product
+          </h2>
+          <div className="overflow-x-auto rounded-xl bg-white ring-1 ring-surface-border">
+            <table className="min-w-full divide-y divide-surface-border text-sm">
+              <thead>
+                <tr className="bg-zinc-50/60">
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">Product</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-zinc-500">Boxes</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-surface-border/60">
+                {productStocks.map((ps) => (
+                  <tr key={ps.productId} className="transition-colors hover:bg-zinc-50/50">
+                    <td className="px-4 py-3 font-medium text-zinc-900">{ps.productName}</td>
+                    <td className={`px-4 py-3 text-right font-mono font-medium ${ps.total <= 0 ? "text-rose-600" : "text-zinc-900"}`}>
+                      {ps.total}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
 
       {/* Quick actions */}
       <section>

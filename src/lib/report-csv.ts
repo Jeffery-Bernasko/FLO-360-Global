@@ -39,6 +39,7 @@ export function stockMovementCsv(rows: StockMovementRow[]): string {
     [
       "Date",
       "Kind",
+      "Product",
       "Party",
       "Boxes",
       "Unit price GHS",
@@ -50,6 +51,7 @@ export function stockMovementCsv(rows: StockMovementRow[]): string {
     rows.map((row) => [
       dateTime(row.createdAt),
       row.kind,
+      row.productName,
       row.partyName,
       row.boxesDelta,
       row.unitPricePesewas == null ? "" : formatGhsPlain(row.unitPricePesewas),

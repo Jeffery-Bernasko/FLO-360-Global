@@ -105,6 +105,7 @@ export async function renderStockMovementReportPdf({
         <View style={[styles.row, styles.head]}>
           <Text style={styles.medium}>Date</Text>
           <Text style={styles.small}>Kind</Text>
+          <Text style={styles.medium}>Product</Text>
           <Text style={styles.grow}>Party / reason</Text>
           <Text style={[styles.small, styles.right]}>Boxes</Text>
           <Text style={[styles.medium, styles.right]}>Balance</Text>
@@ -115,6 +116,7 @@ export async function renderStockMovementReportPdf({
               {row.createdAt.toISOString().slice(0, 10)}
             </Text>
             <Text style={styles.small}>{row.kind}</Text>
+            <Text style={styles.medium}>{row.productName ?? "-"}</Text>
             <Text style={styles.grow}>{row.partyName ?? row.reason ?? "-"}</Text>
             <Text style={[styles.small, styles.right]}>{row.boxesDelta}</Text>
             <Text style={[styles.medium, styles.right]}>{row.runningBalance}</Text>

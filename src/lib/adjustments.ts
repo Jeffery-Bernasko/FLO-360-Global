@@ -3,14 +3,14 @@ import { z } from "zod";
 import { db } from "@/db";
 import {
   auditLog,
+  products,
   stockMovements,
   users,
   type StockMovement,
 } from "@/db/schema";
 import { log } from "@/audit";
-import { recordMovement } from "@/lib/stock-ledger";
+import { recordMovement, getStockForProduct } from "@/lib/stock-ledger";
 import { ADJUSTMENT_REASONS } from "@/lib/adjustments-shared";
-import { DEFAULT_PRODUCT_ID } from "@/lib/default-product";
 
 export { ADJUSTMENT_REASONS, type AdjustmentReason } from "@/lib/adjustments-shared";
 
@@ -28,6 +28,7 @@ type Actor = { id: string; role: "worker" | "manager" };
 const reasonSet: ReadonlySet<string> = new Set(ADJUSTMENT_REASONS);
 
 const inputSchema = z.object({
+  productId: z.string().uuid("Pick a product."),
   boxesDelta: z.coerce
     .number({ invalid_type_error: "Boxes must be a number." })
     .int("Boxes must be a whole number.")
@@ -44,6 +45,7 @@ const inputSchema = z.object({
 
 export type RecordAdjustmentInput = {
   actor: Actor;
+  productId: string;
   boxesDelta: number | string;
   reason: string;
   note?: string | null;
@@ -82,13 +84,7 @@ export async function recordAdjustment(
   }
 
   return db.transaction(async (tx) => {
-    const [stockRow] = await tx
-      .select({
-        total: sql<string>`COALESCE(SUM(boxes_delta), 0)`.as("total"),
-      })
-      .from(stockMovements)
-      .where(eq(stockMovements.productId, DEFAULT_PRODUCT_ID));
-    const currentStock = Number(stockRow?.total ?? 0);
+    const currentStock = await getStockForProduct(parsed.data.productId, tx);
     const resultingStock = currentStock + parsed.data.boxesDelta;
 
     if (parsed.data.boxesDelta < 0 && resultingStock < 0) {
@@ -98,13 +94,12 @@ export async function recordAdjustment(
       );
     }
 
-    // TODO(Phase 4): replace DEFAULT_PRODUCT_ID with user-selected product.
     const { id } = await recordMovement(
       {
         kind: "adjustment",
         boxesDelta: parsed.data.boxesDelta,
         reason: parsed.data.reason,
-        productId: DEFAULT_PRODUCT_ID,
+        productId: parsed.data.productId,
         actor: { id: input.actor.id },
       },
       tx,
@@ -137,6 +132,7 @@ export async function recordAdjustment(
 
 export type AdjustmentRow = StockMovement & {
   actorName: string | null;
+  productName: string | null;
   /** Free-text note pulled from the matching adjustment.create audit row. */
   note: string | null;
 };
@@ -155,15 +151,18 @@ export async function listAdjustments(limit = 100): Promise<AdjustmentRow[]> {
       reason: stockMovements.reason,
       sourceFormKind: stockMovements.sourceFormKind,
       sourceFormId: stockMovements.sourceFormId,
+      productId: stockMovements.productId,
       createdBy: stockMovements.createdBy,
       createdAt: stockMovements.createdAt,
       actorName: users.name,
+      productName: products.name,
       note: sql<
         string | null
       >`(SELECT (${auditLog.payload}->>'note') FROM ${auditLog} WHERE ${auditLog.entityType} = 'stock_movement' AND ${auditLog.entityId} = ${stockMovements.id}::text AND ${auditLog.action} = 'adjustment.create' LIMIT 1)`,
     })
     .from(stockMovements)
     .leftJoin(users, eq(users.id, stockMovements.createdBy))
+    .leftJoin(products, eq(products.id, stockMovements.productId))
     .where(eq(stockMovements.kind, "adjustment"))
     .orderBy(desc(stockMovements.createdAt))
     .limit(limit);

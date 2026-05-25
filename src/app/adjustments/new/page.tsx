@@ -3,7 +3,7 @@ import { requireManager } from "@/auth-server";
 import { ForbiddenError, UnauthorizedError } from "@/auth-helpers";
 import { AppShell } from "@/components/app-shell";
 import { PageHeader } from "@/components/ui/page-header";
-import { getCurrentStock } from "@/lib/stock-ledger";
+import { getCurrentStock, getStockByProductWithNames } from "@/lib/stock-ledger";
 import { AdjustmentForm } from "../adjustment-form";
 
 export default async function NewAdjustmentPage() {
@@ -17,7 +17,10 @@ export default async function NewAdjustmentPage() {
     throw err;
   }
 
-  const currentStock = await getCurrentStock();
+  const [currentStock, productStocks] = await Promise.all([
+    getCurrentStock(),
+    getStockByProductWithNames(),
+  ]);
 
   return (
     <AppShell user={me}>
@@ -26,7 +29,7 @@ export default async function NewAdjustmentPage() {
           title="New Stock Adjustment"
           description="Record damages, returns, or recount corrections. Goes straight into the ledger; no approval needed."
         />
-        <AdjustmentForm currentStock={currentStock} />
+        <AdjustmentForm currentStock={currentStock} productStocks={productStocks} />
       </div>
     </AppShell>
   );

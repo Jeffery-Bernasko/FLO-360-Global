@@ -33,8 +33,11 @@ export async function recordAdjustmentAction(
     }
     const boxesDelta = sign === "-" ? -magnitude : magnitude;
 
+    const productId = String(formData.get("productId") ?? "");
+
     const result = await recordAdjustment({
       actor,
+      productId,
       boxesDelta,
       reason: String(formData.get("reason") ?? ""),
       note: String(formData.get("note") ?? "") || null,

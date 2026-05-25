@@ -47,12 +47,14 @@ const mocks = vi.hoisted(() => {
     state,
     db: { select },
     getCurrentStock: vi.fn(async () => state.currentStock),
+    getStockByProductWithNames: vi.fn(async () => []),
   };
 });
 
 vi.mock("@/db", () => ({ db: mocks.db }));
 vi.mock("@/lib/stock-ledger", () => ({
   getCurrentStock: mocks.getCurrentStock,
+  getStockByProductWithNames: mocks.getStockByProductWithNames,
 }));
 
 import {
@@ -117,6 +119,7 @@ describe("getManagerDashboard", () => {
     const r = await getManagerDashboard();
     expect(r.currentStock).toBe(120);
     expect(r.pending.total).toBe(1);
+    expect(r.productStocks).toEqual([]);
   });
 });
 
