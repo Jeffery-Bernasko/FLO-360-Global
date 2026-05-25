@@ -22,6 +22,8 @@ export class ReportError extends Error {
 
 const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
 const DEFAULT_DAYS = 30;
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export type DateRange = {
   from: Date;
@@ -96,7 +98,11 @@ export function parseReportParams(
     rawKind === "inbound" || rawKind === "outbound" || rawKind === "adjustment"
       ? rawKind
       : "all";
-  const productId = searchParams.get("productId") ?? undefined;
+  const rawProductId = searchParams.get("productId");
+  if (rawProductId && !UUID_PATTERN.test(rawProductId)) {
+    throw new ReportError("invalid_product", "Pick a valid product.");
+  }
+  const productId = rawProductId ?? undefined;
   return {
     from,
     to,
