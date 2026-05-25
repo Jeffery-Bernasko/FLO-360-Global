@@ -171,7 +171,6 @@ export const inboundForms = pgTable(
     supplierId: uuid("supplier_id")
       .notNull()
       .references(() => suppliers.id, { onDelete: "restrict" }),
-    boxes: integer("boxes").notNull(),
     receivedDate: date("received_date").notNull(),
     note: text("note"),
     attachmentKey: text("attachment_key"),
@@ -198,10 +197,6 @@ export const inboundForms = pgTable(
       t.createdAt,
     ),
     createdByIdx: index("inbound_forms_created_by_idx").on(t.createdBy),
-    boxesPositive: check(
-      "inbound_forms_boxes_positive",
-      sql`${t.boxes} > 0`,
-    ),
   }),
 );
 
@@ -233,11 +228,6 @@ export const outboundForms = pgTable(
     customerId: uuid("customer_id")
       .notNull()
       .references(() => customers.id, { onDelete: "restrict" }),
-    boxes: integer("boxes").notNull(),
-    /** Money is stored as integer pesewas. 1 GHS = 100 pesewas. */
-    unitPricePesewas: integer("unit_price_pesewas").notNull(),
-    /** Sum of line-item subtotals. Was a generated column before multi-product. */
-    totalPesewas: integer("total_pesewas").notNull(),
     dispatchDate: date("dispatch_date").notNull(),
     note: text("note"),
     status: formStatusEnum("status").notNull().default("pending"),
@@ -265,14 +255,6 @@ export const outboundForms = pgTable(
       t.createdAt,
     ),
     createdByIdx: index("outbound_forms_created_by_idx").on(t.createdBy),
-    boxesPositive: check(
-      "outbound_forms_boxes_positive",
-      sql`${t.boxes} > 0`,
-    ),
-    unitPricePositive: check(
-      "outbound_forms_unit_price_positive",
-      sql`${t.unitPricePesewas} > 0`,
-    ),
   }),
 );
 

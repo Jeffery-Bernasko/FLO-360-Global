@@ -64,6 +64,13 @@
       "when": 1779807131943,
       "tag": "0008_multi_product_outbound",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1779893531943,
+      "tag": "0009_drop_legacy_form_columns",
+      "breakpoints": true
     }
   ]
 }

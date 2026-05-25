@@ -1,4 +1,4 @@
-import { asc, desc, eq, inArray } from "drizzle-orm";
+import { asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import {
@@ -115,7 +115,6 @@ export async function submitInbound(input: SubmitInboundInput): Promise<InboundF
       .insert(inboundForms)
       .values({
         supplierId: data.supplierId,
-        boxes: totalBoxes,
         receivedDate: data.receivedDate,
         note: data.note ?? null,
         attachmentKey: data.attachmentKey ?? null,
@@ -213,7 +212,6 @@ export async function editAndResubmitInbound(
       .update(inboundForms)
       .set({
         supplierId: data.supplierId,
-        boxes: totalBoxes,
         receivedDate: data.receivedDate,
         note: data.note ?? null,
         attachmentKey:
@@ -249,7 +247,6 @@ export async function editAndResubmitInbound(
         payload: {
           before: {
             supplierId: existing.supplierId,
-            boxes: existing.boxes,
             receivedDate: existing.receivedDate,
           },
           after: {
@@ -333,7 +330,6 @@ export async function approveInbound(input: ApproveInput): Promise<InboundForm> 
         entityType: "inbound_form",
         entityId: String(input.formId),
         payload: {
-          boxes: existing.boxes,
           supplierId: existing.supplierId,
           lines: lines.map((l) => ({
             productId: l.productId,
@@ -412,13 +408,15 @@ export type InboundFormLineWithProduct = InboundFormLine & {
 };
 
 export type InboundFormRow = InboundForm & {
+  /** Computed from line items. */
+  boxes: number;
   supplierName: string;
 };
 
 const formWithSupplierColumns = {
   id: inboundForms.id,
   supplierId: inboundForms.supplierId,
-  boxes: inboundForms.boxes,
+  boxes: sql<number>`COALESCE((SELECT SUM(boxes) FROM inbound_form_lines WHERE form_id = ${inboundForms.id}), 0)`.mapWith(Number).as("boxes"),
   receivedDate: inboundForms.receivedDate,
   note: inboundForms.note,
   attachmentKey: inboundForms.attachmentKey,
@@ -484,6 +482,7 @@ export async function getInboundForm(
 
   return {
     ...r.form,
+    boxes: lines.reduce((s, l) => s + l.boxes, 0),
     supplierName: r.supplier?.name ?? "(unknown)",
     supplier: r.supplier,
     lines: lines.map((l) => ({
