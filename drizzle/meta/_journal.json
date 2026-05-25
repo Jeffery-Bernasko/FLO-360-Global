@@ -43,6 +43,13 @@
       "when": 1779148800000,
       "tag": "0005_first_login_password_change",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1779719883493,
+      "tag": "0006_products",
+      "breakpoints": true
     }
   ]
 }

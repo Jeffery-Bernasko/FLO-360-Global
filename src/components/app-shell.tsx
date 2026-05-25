@@ -15,6 +15,7 @@ import {
   IconReports,
   IconLock,
   IconSignOut,
+  IconBox,
 } from "./icons";
 
 export type NavIconName =
@@ -22,6 +23,7 @@ export type NavIconName =
   | "inbound"
   | "outbound"
   | "inbox"
+  | "products"
   | "customers"
   | "suppliers"
   | "users"
@@ -39,6 +41,7 @@ const ICON_MAP: Record<NavIconName, React.ComponentType<React.SVGProps<SVGSVGEle
   inbound: IconInbound,
   outbound: IconOutbound,
   inbox: IconInbox,
+  products: IconBox,
   customers: IconCustomers,
   suppliers: IconSuppliers,
   users: IconUsers,
@@ -57,6 +60,7 @@ const MANAGER_NAV: NavItemData[] = [
   { href: "/approvals", label: "Inbox", iconName: "inbox" },
   { href: "/inbound", label: "Inbound", iconName: "inbound" },
   { href: "/outbound", label: "Outbound", iconName: "outbound" },
+  { href: "/products", label: "Products", iconName: "products" },
   { href: "/customers", label: "Customers", iconName: "customers" },
   { href: "/suppliers", label: "Suppliers", iconName: "suppliers" },
   { href: "/users", label: "Users", iconName: "users" },
