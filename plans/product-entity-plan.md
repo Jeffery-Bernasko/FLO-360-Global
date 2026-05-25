@@ -6,7 +6,7 @@
 
 Durable decisions that apply across all phases:
 
-- **Routes**: `/products` (list), `/products/new` (create), `/products/[id]/edit` (edit) — manager-only. No new routes for inbound/outbound/adjustments/reports — existing routes gain product awareness.
+- **Routes**: `/products` (list), `/products/new` (create), `/products/[id]` (edit) — manager-only. No new routes for inbound/outbound/adjustments/reports — existing routes gain product awareness.
 - **Schema**: New tables `products`, `inbound_form_lines`, `outbound_form_lines`. New column `product_id` on `stock_movements`. Denormalized `total_pesewas` on `outbound_forms` (replaces generated column).
 - **Key models**: `Product` (uuid PK, name, description, isActive). `InboundFormLine` (formId, productId, boxes). `OutboundFormLine` (formId, productId, boxes, unitPricePesewas, subtotalPesewas generated).
 - **Auth**: Product CRUD is manager-only. Product listing (active only) is available to all authenticated users.
