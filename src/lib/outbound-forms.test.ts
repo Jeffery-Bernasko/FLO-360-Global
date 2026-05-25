@@ -29,18 +29,19 @@ const mocks = vi.hoisted(() => {
   let lastSelectMode: "customer" | "product" | "form" | "lines" = "customer";
 
   const select = vi.fn((fields?: unknown) => {
-    // select with specific fields = customer or product lookup; select() = form
-    lastSelectMode = fields ? "customer" : "form";
+    if (!fields) {
+      lastSelectMode = "form";
+    }
     return {
       from: vi.fn(() => ({
         where: vi.fn(() => ({
           limit: vi.fn(async () => {
-            if (lastSelectMode === "customer") {
+            if (fields && lastSelectMode === "customer") {
               const result = state.customerLookup;
               lastSelectMode = "product";
               return result;
             }
-            if (lastSelectMode === "product") {
+            if (fields) {
               return state.productLookup;
             }
             return state.formForUpdate;
@@ -95,6 +96,9 @@ const mocks = vi.hoisted(() => {
 
   return {
     state,
+    resetSelectMode: () => {
+      lastSelectMode = "customer";
+    },
     db,
     log: vi.fn().mockResolvedValue(undefined),
     recordMovement: vi.fn().mockResolvedValue({ id: 99n }),
@@ -142,6 +146,7 @@ beforeEach(() => {
   mocks.state.updateReturning = [];
   mocks.state.selectLinesReturning = [];
   mocks.state.nextValRows = [{ nextval: "1" }];
+  mocks.resetSelectMode();
   mocks.log.mockClear();
   mocks.recordMovement.mockClear();
   mocks.getStockForProduct.mockClear();

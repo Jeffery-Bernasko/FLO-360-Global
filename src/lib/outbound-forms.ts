@@ -1,4 +1,4 @@
-import { asc, desc, eq, sql } from "drizzle-orm";
+import { asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { put } from "@vercel/blob";
 import { db } from "@/db";
@@ -93,16 +93,19 @@ function parseSubmit(input: SubmitOutboundInput) {
 }
 
 async function validateProducts(
-  tx: typeof db,
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
   productIds: string[],
 ): Promise<void> {
-  for (const pid of productIds) {
-    const rows = await tx
-      .select({ id: products.id, isActive: products.isActive })
-      .from(products)
-      .where(eq(products.id, pid))
-      .limit(1);
-    if (rows.length === 0 || !rows[0].isActive) {
+  const rows = await tx
+    .select({ id: products.id, isActive: products.isActive })
+    .from(products)
+    .where(inArray(products.id, productIds))
+    .limit(productIds.length);
+  const productsById = new Map(rows.map((row) => [row.id, row]));
+
+  for (const productId of productIds) {
+    const product = productsById.get(productId);
+    if (!product || !product.isActive) {
       throw new OutboundFormError(
         "invalid_product",
         "One or more products are not found or inactive.",
@@ -132,7 +135,7 @@ export async function submitOutbound(
 
     // Validate products.
     await validateProducts(
-      tx as unknown as typeof db,
+      tx,
       data.lines.map((l) => l.productId),
     );
 
@@ -258,7 +261,7 @@ export async function editAndResubmitOutbound(
 
     // Validate products.
     await validateProducts(
-      tx as unknown as typeof db,
+      tx,
       data.lines.map((l) => l.productId),
     );
 

@@ -86,10 +86,12 @@ export async function recordAdjustment(
       .select({
         total: sql<string>`COALESCE(SUM(boxes_delta), 0)`.as("total"),
       })
-      .from(stockMovements);
+      .from(stockMovements)
+      .where(eq(stockMovements.productId, DEFAULT_PRODUCT_ID));
     const currentStock = Number(stockRow?.total ?? 0);
+    const resultingStock = currentStock + parsed.data.boxesDelta;
 
-    if (parsed.data.boxesDelta < 0 && currentStock + parsed.data.boxesDelta < 0) {
+    if (parsed.data.boxesDelta < 0 && resultingStock < 0) {
       throw new AdjustmentError(
         "would_go_negative",
         `Only ${currentStock} boxes in stock — cannot subtract ${Math.abs(parsed.data.boxesDelta)}.`,
@@ -118,7 +120,7 @@ export async function recordAdjustment(
           boxesDelta: parsed.data.boxesDelta,
           reason: parsed.data.reason,
           note: parsed.data.note,
-          resultingStock: currentStock + parsed.data.boxesDelta,
+          resultingStock,
         },
       },
       tx,
@@ -126,7 +128,7 @@ export async function recordAdjustment(
 
     return {
       movementId: id,
-      resultingStock: currentStock + parsed.data.boxesDelta,
+      resultingStock,
     };
   });
 }
