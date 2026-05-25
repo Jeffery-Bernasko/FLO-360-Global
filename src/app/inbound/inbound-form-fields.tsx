@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useActionState } from "react";
 import { useRouter } from "next/navigation";
 import { PartyPicker } from "@/components/party-picker";
+import { ProductPicker } from "@/components/product-picker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -16,6 +17,11 @@ import {
   type ActionResult,
 } from "./actions";
 
+type LineDefault = {
+  product: { id: string; name: string };
+  boxes: number;
+};
+
 type Mode =
   | { kind: "create" }
   | {
@@ -23,11 +29,31 @@ type Mode =
       formId: string;
       defaults: {
         supplier: { id: string; name: string };
-        boxes: number;
+        lines: LineDefault[];
         receivedDate: string;
         note: string | null;
       };
     };
+
+type LineState = {
+  key: number;
+  product: { id: string; name: string } | null;
+  boxes: string;
+};
+
+let nextKey = 0;
+
+function makeEmptyLine(): LineState {
+  return { key: nextKey++, product: null, boxes: "" };
+}
+
+function fromDefaults(defaults: LineDefault[]): LineState[] {
+  return defaults.map((d) => ({
+    key: nextKey++,
+    product: d.product,
+    boxes: String(d.boxes),
+  }));
+}
 
 export function InboundFormFields({ mode }: { mode: Mode }) {
   const action =
@@ -48,6 +74,40 @@ export function InboundFormFields({ mode }: { mode: Mode }) {
     }
   }, [state, router]);
 
+  const [lines, setLines] = useState<LineState[]>(() =>
+    mode.kind === "edit" && mode.defaults.lines.length > 0
+      ? fromDefaults(mode.defaults.lines)
+      : [makeEmptyLine()],
+  );
+
+  function addLine() {
+    setLines((prev) => [...prev, makeEmptyLine()]);
+  }
+
+  function removeLine(key: number) {
+    setLines((prev) => {
+      const next = prev.filter((l) => l.key !== key);
+      return next.length > 0 ? next : [makeEmptyLine()];
+    });
+  }
+
+  function updateLineProduct(key: number, product: { id: string; name: string } | null) {
+    setLines((prev) =>
+      prev.map((l) => (l.key === key ? { ...l, product } : l)),
+    );
+  }
+
+  function updateLineBoxes(key: number, boxes: string) {
+    setLines((prev) =>
+      prev.map((l) => (l.key === key ? { ...l, boxes } : l)),
+    );
+  }
+
+  // Collect selected product IDs for exclusion in pickers.
+  const selectedProductIds = lines
+    .map((l) => l.product?.id)
+    .filter((id): id is string => id != null);
+
   const today = new Date().toISOString().slice(0, 10);
 
   return (
@@ -65,17 +125,64 @@ export function InboundFormFields({ mode }: { mode: Mode }) {
           />
         </FormField>
 
-        <FormField label="Boxes">
-          <Input
-            type="number"
-            name="boxes"
-            required
-            min={1}
-            step={1}
-            inputMode="numeric"
-            defaultValue={mode.kind === "edit" ? String(mode.defaults.boxes) : ""}
-          />
-        </FormField>
+        {/* Line items */}
+        <div>
+          <label className="block text-sm font-medium text-zinc-700 mb-2">
+            Products
+          </label>
+          <div className="space-y-3">
+            {lines.map((line, idx) => (
+              <div key={line.key} className="flex gap-2 items-start">
+                {/* Hidden fields for form submission */}
+                <input
+                  type="hidden"
+                  name={`lines[${idx}].productId`}
+                  value={line.product?.id ?? ""}
+                />
+                <div className="flex-1 min-w-0">
+                  <ProductPicker
+                    name={`_lines[${idx}].productDisplay`}
+                    required
+                    initial={line.product}
+                    exclude={selectedProductIds.filter(
+                      (id) => id !== line.product?.id,
+                    )}
+                    onSelect={(p) => updateLineProduct(line.key, p)}
+                    key={`picker-${line.key}`}
+                  />
+                </div>
+                <div className="w-24 flex-shrink-0">
+                  <Input
+                    type="number"
+                    name={`lines[${idx}].boxes`}
+                    required
+                    min={1}
+                    step={1}
+                    inputMode="numeric"
+                    placeholder="Boxes"
+                    value={line.boxes}
+                    onChange={(e) => updateLineBoxes(line.key, e.target.value)}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeLine(line.key)}
+                  className="mt-1.5 rounded-md px-2 py-1.5 text-xs font-medium text-zinc-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                  aria-label="Remove line"
+                >
+                  &times;
+                </button>
+              </div>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={addLine}
+            className="mt-2 rounded-lg px-3 py-1.5 text-sm font-medium text-emerald-700 hover:bg-emerald-50 transition-colors"
+          >
+            + Add product
+          </button>
+        </div>
 
         <FormField label="Date received">
           <Input

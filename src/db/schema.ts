@@ -71,6 +71,9 @@ export const stockMovements = pgTable(
     reason: text("reason"),
     sourceFormKind: sourceFormKindEnum("source_form_kind"),
     sourceFormId: bigint("source_form_id", { mode: "bigint" }),
+    productId: uuid("product_id")
+      .notNull()
+      .references(() => products.id, { onDelete: "restrict" }),
     createdBy: uuid("created_by")
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),
@@ -84,6 +87,7 @@ export const stockMovements = pgTable(
       t.sourceFormKind,
       t.sourceFormId,
     ),
+    productIdx: index("stock_movements_product_id_idx").on(t.productId),
   }),
 );
 
@@ -201,6 +205,27 @@ export const inboundForms = pgTable(
   }),
 );
 
+export const inboundFormLines = pgTable(
+  "inbound_form_lines",
+  {
+    id: bigserial("id", { mode: "bigint" }).primaryKey(),
+    formId: bigint("form_id", { mode: "bigint" })
+      .notNull()
+      .references(() => inboundForms.id, { onDelete: "cascade" }),
+    productId: uuid("product_id")
+      .notNull()
+      .references(() => products.id, { onDelete: "restrict" }),
+    boxes: integer("boxes").notNull(),
+  },
+  (t) => ({
+    formIdIdx: index("inbound_form_lines_form_id_idx").on(t.formId),
+    boxesPositive: check(
+      "inbound_form_lines_boxes_positive",
+      sql`${t.boxes} > 0`,
+    ),
+  }),
+);
+
 export const outboundForms = pgTable(
   "outbound_forms",
   {
@@ -271,5 +296,7 @@ export type NewSupplier = typeof suppliers.$inferInsert;
 export type FormStatus = (typeof formStatusEnum.enumValues)[number];
 export type InboundForm = typeof inboundForms.$inferSelect;
 export type NewInboundForm = typeof inboundForms.$inferInsert;
+export type InboundFormLine = typeof inboundFormLines.$inferSelect;
+export type NewInboundFormLine = typeof inboundFormLines.$inferInsert;
 export type OutboundForm = typeof outboundForms.$inferSelect;
 export type NewOutboundForm = typeof outboundForms.$inferInsert;

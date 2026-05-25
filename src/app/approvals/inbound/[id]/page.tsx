@@ -46,8 +46,40 @@ export default async function ApproveInboundDetailPage({ params }: PageProps) {
         />
 
         <Card>
+          {/* Line items table */}
+          {form.lines.length > 0 ? (
+            <div className="mb-4">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">Products</h3>
+              <div className="overflow-x-auto rounded-lg ring-1 ring-surface-border">
+                <table className="min-w-full divide-y divide-surface-border text-sm">
+                  <thead>
+                    <tr className="bg-zinc-50/60">
+                      <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">Product</th>
+                      <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wider text-zinc-500">Boxes</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-surface-border/60">
+                    {form.lines.map((line) => (
+                      <tr key={String(line.id)}>
+                        <td className="px-3 py-2 text-zinc-900">{line.productName}</td>
+                        <td className="px-3 py-2 text-right font-mono text-zinc-700">{line.boxes}</td>
+                      </tr>
+                    ))}
+                    <tr className="bg-zinc-50/40">
+                      <td className="px-3 py-2 text-xs font-semibold uppercase text-zinc-500">Total</td>
+                      <td className="px-3 py-2 text-right font-mono font-semibold text-zinc-900">{form.boxes}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            <DetailGrid>
+              <DetailField label="Boxes" value={`${form.boxes}`} mono />
+            </DetailGrid>
+          )}
+
           <DetailGrid>
-            <DetailField label="Boxes" value={`${form.boxes}`} mono />
             <DetailField
               label="After approval"
               value={`${currentStock + form.boxes} boxes (currently ${currentStock})`}

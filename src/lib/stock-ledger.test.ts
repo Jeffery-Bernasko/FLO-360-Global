@@ -53,6 +53,7 @@ import {
 } from "./stock-ledger";
 
 const actor = { id: "user-1" };
+const productId = "00000000-0000-4000-a000-000000000001";
 
 beforeEach(() => {
   mocks.state.insertReturning = [{ id: 42n }];
@@ -65,25 +66,25 @@ beforeEach(() => {
 describe("recordMovement validation", () => {
   it("rejects a non-integer delta", async () => {
     await expect(
-      recordMovement({ kind: "adjustment", boxesDelta: 1.5, actor }),
+      recordMovement({ kind: "adjustment", boxesDelta: 1.5, productId, actor }),
     ).rejects.toMatchObject({ code: "invalid_delta" });
   });
 
   it("rejects a zero delta", async () => {
     await expect(
-      recordMovement({ kind: "adjustment", boxesDelta: 0, actor }),
+      recordMovement({ kind: "adjustment", boxesDelta: 0, productId, actor }),
     ).rejects.toMatchObject({ code: "invalid_delta" });
   });
 
   it("rejects an inbound with negative delta", async () => {
     await expect(
-      recordMovement({ kind: "inbound", boxesDelta: -3, actor }),
+      recordMovement({ kind: "inbound", boxesDelta: -3, productId, actor }),
     ).rejects.toMatchObject({ code: "invalid_delta_for_kind" });
   });
 
   it("rejects an outbound with positive delta", async () => {
     await expect(
-      recordMovement({ kind: "outbound", boxesDelta: 3, actor }),
+      recordMovement({ kind: "outbound", boxesDelta: 3, productId, actor }),
     ).rejects.toMatchObject({ code: "invalid_delta_for_kind" });
   });
 
@@ -93,6 +94,7 @@ describe("recordMovement validation", () => {
         kind: "inbound",
         boxesDelta: 10,
         sourceFormKind: "inbound",
+        productId,
         actor,
       }),
     ).rejects.toMatchObject({ code: "incomplete_source" });
@@ -105,6 +107,7 @@ describe("recordMovement validation", () => {
         boxesDelta: 10,
         sourceFormKind: "outbound",
         sourceFormId: 9n,
+        productId,
         actor,
       }),
     ).rejects.toMatchObject({ code: "mismatched_source" });
@@ -117,6 +120,7 @@ describe("recordMovement validation", () => {
         boxesDelta: -2,
         sourceFormKind: "outbound",
         sourceFormId: 5n,
+        productId,
         actor,
       }),
     ).rejects.toMatchObject({ code: "adjustment_with_source" });
@@ -133,6 +137,7 @@ describe("recordMovement happy path", () => {
       reason: "Shipment 23",
       sourceFormKind: "inbound",
       sourceFormId: 7n,
+      productId,
       actor,
     });
 
@@ -145,6 +150,7 @@ describe("recordMovement happy path", () => {
       reason: "Shipment 23",
       sourceFormKind: "inbound",
       sourceFormId: 7n,
+      productId,
       createdBy: actor.id,
     });
 
@@ -176,7 +182,7 @@ describe("recordMovement happy path", () => {
     >[1];
 
     await recordMovement(
-      { kind: "outbound", boxesDelta: -3, actor },
+      { kind: "outbound", boxesDelta: -3, productId, actor },
       tx,
     );
 

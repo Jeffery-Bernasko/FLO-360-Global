@@ -10,6 +10,7 @@ import {
 import { log } from "@/audit";
 import { recordMovement } from "@/lib/stock-ledger";
 import { ADJUSTMENT_REASONS } from "@/lib/adjustments-shared";
+import { DEFAULT_PRODUCT_ID } from "@/lib/default-product";
 
 export { ADJUSTMENT_REASONS, type AdjustmentReason } from "@/lib/adjustments-shared";
 
@@ -95,11 +96,13 @@ export async function recordAdjustment(
       );
     }
 
+    // TODO(Phase 4): replace DEFAULT_PRODUCT_ID with user-selected product.
     const { id } = await recordMovement(
       {
         kind: "adjustment",
         boxesDelta: parsed.data.boxesDelta,
         reason: parsed.data.reason,
+        productId: DEFAULT_PRODUCT_ID,
         actor: { id: input.actor.id },
       },
       tx,

@@ -11,6 +11,7 @@ import {
 import { log } from "@/audit";
 import { recordMovement, getCurrentStock } from "@/lib/stock-ledger";
 import { renderInvoicePdfBuffer, type InvoiceData } from "@/lib/invoice-pdf";
+import { DEFAULT_PRODUCT_ID } from "@/lib/default-product";
 
 export class OutboundFormError extends Error {
   code: string;
@@ -311,6 +312,7 @@ export async function approveOutbound(input: ApproveOutboundInput): Promise<Outb
     }
 
     // Deduct stock via the ledger.
+    // TODO(Phase 3): replace DEFAULT_PRODUCT_ID with per-line-item products.
     await recordMovement(
       {
         kind: "outbound",
@@ -318,6 +320,7 @@ export async function approveOutbound(input: ApproveOutboundInput): Promise<Outb
         reason: `Outbound form #${existing.id} → ${customer.name}`,
         sourceFormKind: "outbound",
         sourceFormId: existing.id,
+        productId: DEFAULT_PRODUCT_ID,
         actor: { id: input.actor.id },
       },
       tx,
