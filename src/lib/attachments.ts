@@ -1,4 +1,4 @@
-import { put, del, head } from "@vercel/blob";
+import { put, del } from "@vercel/blob";
 import { randomBytes } from "node:crypto";
 
 export class AttachmentError extends Error {
@@ -90,19 +90,14 @@ export async function uploadAttachment(input: UploadInput): Promise<UploadResult
 }
 
 /**
- * Returns a URL the browser can fetch directly. Vercel Blob URLs are stable
- * and tied to the key — no signing dance needed for a public store.
+ * Returns an authenticated proxy URL (`/api/blob?key=…`) so the browser
+ * never receives the direct public blob URL. The proxy route checks the
+ * user's session before streaming content.
  */
-export async function getAttachmentUrl(key: string): Promise<string | null> {
+export function getAttachmentUrl(key: string): string | null {
   if (!key) return null;
-  const token = process.env.BLOB_READ_WRITE_TOKEN;
-  if (!token) return null;
-  try {
-    const meta = await head(key, { token });
-    return meta.url;
-  } catch {
-    return null;
-  }
+  if (!process.env.BLOB_READ_WRITE_TOKEN) return null;
+  return `/api/blob?key=${encodeURIComponent(key)}`;
 }
 
 /**

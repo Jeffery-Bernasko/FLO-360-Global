@@ -139,7 +139,14 @@ export async function submitOutbound(
       data.lines.map((l) => l.productId),
     );
 
-    // Check per-product stock.
+    // Lock product rows to serialize concurrent stock checks.
+    await tx
+      .select({ id: products.id })
+      .from(products)
+      .where(inArray(products.id, data.lines.map((l) => l.productId)))
+      .for("update");
+
+    // Check per-product stock (now serialized).
     for (const line of data.lines) {
       const stock = await getStockForProduct(line.productId, tx);
       if (line.boxes > stock) {
@@ -353,7 +360,15 @@ export async function approveOutbound(input: ApproveOutboundInput): Promise<Outb
       .innerJoin(products, eq(outboundFormLines.productId, products.id))
       .where(eq(outboundFormLines.formId, input.formId));
 
-    // Check per-product stock inside the transaction.
+    // Lock product rows so concurrent approvals for the same products serialize.
+    const productIds = lines.map((l) => l.productId);
+    await tx
+      .select({ id: products.id })
+      .from(products)
+      .where(inArray(products.id, productIds))
+      .for("update");
+
+    // Check per-product stock inside the transaction (now serialized).
     for (const line of lines) {
       const stock = await getStockForProduct(line.productId, tx);
       if (line.boxes > stock) {
