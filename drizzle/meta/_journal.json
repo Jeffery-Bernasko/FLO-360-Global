@@ -36,6 +36,41 @@
       "when": 1778677667991,
       "tag": "0004_outbound_forms",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1779148800000,
+      "tag": "0005_first_login_password_change",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1779719883493,
+      "tag": "0006_products",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1779720731943,
+      "tag": "0007_multi_product_inbound",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1779807131943,
+      "tag": "0008_multi_product_outbound",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1779893531943,
+      "tag": "0009_drop_legacy_form_columns",
+      "breakpoints": true
     }
   ]
 }

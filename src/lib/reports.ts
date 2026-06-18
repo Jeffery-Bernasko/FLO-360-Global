@@ -3,7 +3,10 @@ import { db } from "@/db";
 import {
   customers,
   inboundForms,
+  inboundFormLines,
   outboundForms,
+  outboundFormLines,
+  products,
   stockMovements,
   suppliers,
   users,
@@ -21,6 +24,8 @@ export class ReportError extends Error {
 
 const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
 const DEFAULT_DAYS = 30;
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export type DateRange = {
   from: Date;
@@ -30,6 +35,8 @@ export type DateRange = {
 export type ReportFilter = DateRange & {
   /** Optional movement-kind filter for the stock-movement report. */
   kinds?: MovementKind[];
+  /** Optional product filter for the stock-movement report. */
+  productId?: string;
 };
 
 export type ReportKindFilter = MovementKind | "all";
@@ -93,20 +100,27 @@ export function parseReportParams(
     rawKind === "inbound" || rawKind === "outbound" || rawKind === "adjustment"
       ? rawKind
       : "all";
+  const rawProductId = searchParams.get("productId");
+  if (rawProductId && !UUID_PATTERN.test(rawProductId)) {
+    throw new ReportError("invalid_product", "Pick a valid product.");
+  }
+  const productId = rawProductId ?? undefined;
   return {
     from,
     to,
     kind,
     kinds: kind === "all" ? undefined : [kind],
+    productId,
   };
 }
 
-export function reportSearchParams(range: DateRange, kind?: ReportKindFilter) {
+export function reportSearchParams(range: DateRange, kind?: ReportKindFilter, productId?: string) {
   const params = new URLSearchParams({
     from: dateInputValue(range.from),
     to: dateInputValue(range.to),
   });
   if (kind && kind !== "all") params.set("kind", kind);
+  if (productId) params.set("productId", productId);
   return params;
 }
 
@@ -125,6 +139,8 @@ export type StockMovementRow = {
   reason: string | null;
   sourceFormKind: "inbound" | "outbound" | null;
   sourceFormId: string | null;
+  /** Product name. */
+  productName: string | null;
   /** Counterparty name (supplier for inbound, customer for outbound, null for adjustment). */
   partyName: string | null;
   /** Outbound only — unit price in pesewas. */
@@ -149,9 +165,12 @@ export async function stockMovementReport(
   if (filter.kinds && filter.kinds.length > 0 && filter.kinds.length < 3) {
     conditions.push(inArray(stockMovements.kind, filter.kinds));
   }
+  if (filter.productId) {
+    conditions.push(eq(stockMovements.productId, filter.productId));
+  }
 
-  // Pull raw movements, joined to the actor; then enrich with party + price
-  // by looking up the source form in a second step (one of two tables).
+  // Pull raw movements, joined to the actor and product; then enrich with
+  // party + price by looking up the source form in a second step.
   const rows = await db
     .select({
       id: stockMovements.id,
@@ -161,10 +180,13 @@ export async function stockMovementReport(
       reason: stockMovements.reason,
       sourceFormKind: stockMovements.sourceFormKind,
       sourceFormId: stockMovements.sourceFormId,
+      productId: stockMovements.productId,
       actorName: users.name,
+      productName: products.name,
     })
     .from(stockMovements)
     .leftJoin(users, eq(users.id, stockMovements.createdBy))
+    .leftJoin(products, eq(products.id, stockMovements.productId))
     .where(and(...conditions))
     .orderBy(asc(stockMovements.createdAt), asc(stockMovements.id));
 
@@ -192,8 +214,6 @@ export async function stockMovementReport(
           .select({
             id: outboundForms.id,
             customerName: customers.name,
-            unitPricePesewas: outboundForms.unitPricePesewas,
-            totalPesewas: outboundForms.totalPesewas,
           })
           .from(outboundForms)
           .leftJoin(customers, eq(customers.id, outboundForms.customerId))
@@ -202,14 +222,30 @@ export async function stockMovementReport(
           [] as {
             id: bigint;
             customerName: string | null;
-            unitPricePesewas: number | null;
-            totalPesewas: number | null;
           }[],
         ),
   ]);
 
+  // Load outbound line items for unit price data.
+  const outboundLineRows =
+    outboundIds.length > 0
+      ? await db
+          .select({
+            formId: outboundFormLines.formId,
+            productId: outboundFormLines.productId,
+            unitPricePesewas: outboundFormLines.unitPricePesewas,
+            boxes: outboundFormLines.boxes,
+          })
+          .from(outboundFormLines)
+          .where(inArray(outboundFormLines.formId, outboundIds))
+      : [];
+
   const inboundById = new Map(inboundRows.map((r) => [String(r.id), r]));
   const outboundById = new Map(outboundRows.map((r) => [String(r.id), r]));
+  // Key: "formId:productId"
+  const outboundLineMap = new Map(
+    outboundLineRows.map((l) => [`${l.formId}:${l.productId}`, l]),
+  );
 
   let runningBalance = 0;
   const enriched: StockMovementRow[] = rows.map((r) => {
@@ -225,8 +261,9 @@ export async function stockMovementReport(
     } else if (r.sourceFormKind === "outbound" && r.sourceFormId != null) {
       const o = outboundById.get(String(r.sourceFormId));
       partyName = o?.customerName ?? null;
-      unitPricePesewas = o?.unitPricePesewas ?? null;
-      totalPesewas = o?.totalPesewas ?? null;
+      const line = outboundLineMap.get(`${r.sourceFormId}:${r.productId}`);
+      unitPricePesewas = line?.unitPricePesewas ?? null;
+      totalPesewas = line ? line.boxes * line.unitPricePesewas : null;
     }
 
     return {
@@ -237,6 +274,7 @@ export async function stockMovementReport(
       reason: r.reason,
       sourceFormKind: r.sourceFormKind,
       sourceFormId: r.sourceFormId != null ? String(r.sourceFormId) : null,
+      productName: r.productName,
       partyName,
       unitPricePesewas,
       totalPesewas,
@@ -270,14 +308,14 @@ export async function perCustomerReport(
       customerId: customers.id,
       customerName: customers.name,
       customerLocation: customers.location,
-      totalBoxes: sql<string>`COALESCE(SUM(${outboundForms.boxes}), 0)`.as(
+      totalBoxes: sql<string>`COALESCE(SUM(${outboundFormLines.boxes}), 0)`.as(
         "total_boxes",
       ),
       totalPesewas:
-        sql<string>`COALESCE(SUM(${outboundForms.totalPesewas}), 0)`.as(
+        sql<string>`COALESCE(SUM(${outboundFormLines.boxes} * ${outboundFormLines.unitPricePesewas}), 0)`.as(
           "total_pesewas",
         ),
-      dispatchCount: sql<string>`COUNT(${outboundForms.id})`.as(
+      dispatchCount: sql<string>`COUNT(DISTINCT ${outboundForms.id})`.as(
         "dispatch_count",
       ),
       lastDispatchAt: sql<Date | null>`MAX(${outboundForms.decidedAt})`.as(
@@ -286,6 +324,7 @@ export async function perCustomerReport(
     })
     .from(outboundForms)
     .innerJoin(customers, eq(customers.id, outboundForms.customerId))
+    .innerJoin(outboundFormLines, eq(outboundFormLines.formId, outboundForms.id))
     .where(
       and(
         eq(outboundForms.status, "approved"),
@@ -328,10 +367,10 @@ export async function perSupplierReport(
       supplierId: suppliers.id,
       supplierName: suppliers.name,
       country: suppliers.country,
-      totalBoxes: sql<string>`COALESCE(SUM(${inboundForms.boxes}), 0)`.as(
+      totalBoxes: sql<string>`COALESCE(SUM(${inboundFormLines.boxes}), 0)`.as(
         "total_boxes",
       ),
-      shipmentCount: sql<string>`COUNT(${inboundForms.id})`.as(
+      shipmentCount: sql<string>`COUNT(DISTINCT ${inboundForms.id})`.as(
         "shipment_count",
       ),
       lastReceivedAt: sql<Date | null>`MAX(${inboundForms.decidedAt})`.as(
@@ -340,6 +379,7 @@ export async function perSupplierReport(
     })
     .from(inboundForms)
     .innerJoin(suppliers, eq(suppliers.id, inboundForms.supplierId))
+    .innerJoin(inboundFormLines, eq(inboundFormLines.formId, inboundForms.id))
     .where(
       and(
         eq(inboundForms.status, "approved"),

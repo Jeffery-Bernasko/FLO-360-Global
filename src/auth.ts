@@ -14,7 +14,10 @@ const credentialsSchema = z.object({
 const EIGHT_HOURS_IN_SECONDS = 60 * 60 * 8;
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  trustHost: process.env.NODE_ENV === "development",
+  trustHost:
+    process.env.NODE_ENV === "development" ||
+    process.env.VERCEL === "1" ||
+    process.env.AUTH_TRUST_HOST === "true",
   session: {
     strategy: "jwt",
     maxAge: EIGHT_HOURS_IN_SECONDS,
@@ -48,6 +51,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           email: user.email,
           name: user.name,
           role: user.role,
+          mustChangePassword: user.mustChangePassword,
         };
       },
     }),
@@ -64,6 +68,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
         token.id = user.id;
         token.role = role;
+        token.mustChangePassword = Boolean(
+          (user as { mustChangePassword?: boolean }).mustChangePassword,
+        );
       }
       return token;
     },
@@ -76,6 +83,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
       session.user.id = token.id;
       session.user.role = token.role;
+      session.user.mustChangePassword = Boolean(token.mustChangePassword);
       return session;
     },
   },

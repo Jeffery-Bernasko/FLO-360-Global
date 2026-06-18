@@ -1,33 +1,61 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useEffect, useState, useTransition } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PartyPicker } from "@/components/party-picker";
+import { ProductPicker } from "@/components/product-picker";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { FormField, FormCard } from "@/components/ui/form-field";
+import { Alert } from "@/components/ui/alert";
 import {
   submitOutboundAction,
   editAndResubmitOutboundAction,
-  quoteOutboundStockAction,
   type ActionResult,
 } from "./actions";
 
-const inputClass =
-  "mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2.5 text-base shadow-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900";
+type LineDefault = {
+  product: { id: string; name: string };
+  boxes: number;
+  unitPriceGhs: string;
+};
 
 type Mode =
-  | { kind: "create"; currentStock: number }
+  | { kind: "create" }
   | {
       kind: "edit";
       formId: string;
-      currentStock: number;
       defaults: {
         customer: { id: string; name: string };
-        boxes: number;
-        unitPriceGhs: string;
+        lines: LineDefault[];
         dispatchDate: string;
         note: string | null;
       };
     };
+
+type LineState = {
+  key: number;
+  product: { id: string; name: string } | null;
+  boxes: string;
+  unitPriceGhs: string;
+};
+
+let nextKey = 0;
+
+function makeEmptyLine(): LineState {
+  return { key: nextKey++, product: null, boxes: "", unitPriceGhs: "" };
+}
+
+function fromDefaults(defaults: LineDefault[]): LineState[] {
+  return defaults.map((d) => ({
+    key: nextKey++,
+    product: d.product,
+    boxes: String(d.boxes),
+    unitPriceGhs: d.unitPriceGhs,
+  }));
+}
 
 export function OutboundFormFields({ mode }: { mode: Mode }) {
   const action =
@@ -41,14 +69,6 @@ export function OutboundFormFields({ mode }: { mode: Mode }) {
   >(action, null);
 
   const router = useRouter();
-  const [boxes, setBoxes] = useState<number>(
-    mode.kind === "edit" ? mode.defaults.boxes : 0,
-  );
-  const [unitPriceGhs, setUnitPriceGhs] = useState<string>(
-    mode.kind === "edit" ? mode.defaults.unitPriceGhs : "",
-  );
-  const [quotedStock, setQuotedStock] = useState<number>(mode.currentStock);
-  const [, startTransition] = useTransition();
 
   useEffect(() => {
     if (state?.ok) {
@@ -56,151 +76,189 @@ export function OutboundFormFields({ mode }: { mode: Mode }) {
     }
   }, [state, router]);
 
-  // Refresh the stock quote when the worker changes the boxes value.
-  useEffect(() => {
-    if (boxes <= 0) return;
-    const handle = setTimeout(() => {
-      startTransition(async () => {
-        const q = await quoteOutboundStockAction(boxes);
-        setQuotedStock(q.currentStock);
-      });
-    }, 300);
-    return () => clearTimeout(handle);
-  }, [boxes]);
+  const [lines, setLines] = useState<LineState[]>(() =>
+    mode.kind === "edit" && mode.defaults.lines.length > 0
+      ? fromDefaults(mode.defaults.lines)
+      : [makeEmptyLine()],
+  );
 
-  const exceedsStock = boxes > 0 && boxes > quotedStock;
+  function addLine() {
+    setLines((prev) => [...prev, makeEmptyLine()]);
+  }
+
+  function removeLine(key: number) {
+    setLines((prev) => {
+      const next = prev.filter((l) => l.key !== key);
+      return next.length > 0 ? next : [makeEmptyLine()];
+    });
+  }
+
+  function updateLineProduct(key: number, product: { id: string; name: string } | null) {
+    setLines((prev) =>
+      prev.map((l) => (l.key === key ? { ...l, product } : l)),
+    );
+  }
+
+  function updateLineBoxes(key: number, boxes: string) {
+    setLines((prev) =>
+      prev.map((l) => (l.key === key ? { ...l, boxes } : l)),
+    );
+  }
+
+  function updateLinePrice(key: number, unitPriceGhs: string) {
+    setLines((prev) =>
+      prev.map((l) => (l.key === key ? { ...l, unitPriceGhs } : l)),
+    );
+  }
+
+  const selectedProductIds = lines
+    .map((l) => l.product?.id)
+    .filter((id): id is string => id != null);
+
+  // Compute preview total (GHS).
+  const previewTotalGhs = lines.reduce((sum, l) => {
+    const b = Number(l.boxes);
+    const p = Number(l.unitPriceGhs);
+    if (Number.isNaN(b) || Number.isNaN(p) || b <= 0 || p <= 0) return sum;
+    return sum + b * p;
+  }, 0);
+
   const today = new Date().toISOString().slice(0, 10);
-  const priceNumeric = Number(unitPriceGhs);
-  const previewTotalGhs =
-    !Number.isNaN(priceNumeric) && boxes > 0
-      ? (priceNumeric * boxes).toFixed(2)
-      : null;
 
   return (
-    <form
-      action={formAction}
-      className="space-y-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200"
-    >
-      {mode.kind === "edit" && (
-        <input type="hidden" name="formId" value={mode.formId} />
-      )}
+    <form action={formAction}>
+      <FormCard>
+        {mode.kind === "edit" && (
+          <input type="hidden" name="formId" value={mode.formId} />
+        )}
 
-      <label className="block">
-        <span className="text-sm font-medium text-slate-700">Customer</span>
-        <div className="mt-1">
+        <FormField label="Customer">
           <PartyPicker
             kind="customer"
             required
             initial={mode.kind === "edit" ? mode.defaults.customer : null}
           />
+        </FormField>
+
+        {/* Line items */}
+        <div>
+          <label className="block text-sm font-medium text-zinc-700 mb-2">
+            Products
+          </label>
+          <div className="space-y-3">
+            {lines.map((line, idx) => (
+              <div key={line.key} className="rounded-lg border border-surface-border/60 p-3 space-y-2">
+                {/* Hidden fields for form submission */}
+                <input
+                  type="hidden"
+                  name={`lines[${idx}].productId`}
+                  value={line.product?.id ?? ""}
+                />
+                <div className="flex gap-2 items-start">
+                  <div className="flex-1 min-w-0">
+                    <ProductPicker
+                      name={`_lines[${idx}].productDisplay`}
+                      required
+                      initial={line.product}
+                      exclude={selectedProductIds.filter(
+                        (id) => id !== line.product?.id,
+                      )}
+                      onSelect={(p) => updateLineProduct(line.key, p)}
+                      key={`picker-${line.key}`}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeLine(line.key)}
+                    className="mt-1.5 rounded-md px-2 py-1.5 text-xs font-medium text-zinc-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                    aria-label="Remove line"
+                  >
+                    &times;
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Input
+                    type="number"
+                    name={`lines[${idx}].boxes`}
+                    required
+                    min={1}
+                    step={1}
+                    inputMode="numeric"
+                    placeholder="Boxes"
+                    value={line.boxes}
+                    onChange={(e) => updateLineBoxes(line.key, e.target.value)}
+                  />
+                  <Input
+                    type="text"
+                    name={`lines[${idx}].unitPriceGhs`}
+                    required
+                    inputMode="decimal"
+                    pattern="^\d+(\.\d{1,2})?$"
+                    placeholder="Price (GH₵)"
+                    value={line.unitPriceGhs}
+                    onChange={(e) => updateLinePrice(line.key, e.target.value)}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={addLine}
+            className="mt-2 rounded-lg px-3 py-1.5 text-sm font-medium text-emerald-700 hover:bg-emerald-50 transition-colors"
+          >
+            + Add product
+          </button>
         </div>
-      </label>
 
-      <div className="grid grid-cols-2 gap-3">
-        <label className="block">
-          <span className="text-sm font-medium text-slate-700">Boxes</span>
-          <input
-            type="number"
-            name="boxes"
-            required
-            min={1}
-            step={1}
-            inputMode="numeric"
-            value={boxes || ""}
-            onChange={(e) => setBoxes(Number(e.target.value))}
-            className={inputClass}
-          />
-        </label>
-
-        <label className="block">
-          <span className="text-sm font-medium text-slate-700">
-            Unit price (GH₵)
-          </span>
-          <input
-            type="text"
-            name="unitPriceGhs"
-            required
-            inputMode="decimal"
-            pattern="^\d+(\.\d{1,2})?$"
-            value={unitPriceGhs}
-            onChange={(e) => setUnitPriceGhs(e.target.value)}
-            placeholder="50.00"
-            className={inputClass}
-          />
-        </label>
-      </div>
-
-      <div className="rounded-lg bg-slate-50 p-3 text-sm ring-1 ring-slate-200">
-        <div className="flex items-baseline justify-between">
-          <span className="text-slate-500">Current stock</span>
-          <span className="font-medium">{quotedStock} boxes</span>
-        </div>
-        {previewTotalGhs ? (
-          <div className="mt-1 flex items-baseline justify-between">
-            <span className="text-slate-500">Total</span>
-            <span className="font-medium">GH₵ {previewTotalGhs}</span>
+        {/* Total preview */}
+        {previewTotalGhs > 0 ? (
+          <div className="rounded-lg bg-zinc-50 p-4 ring-1 ring-surface-border">
+            <div className="flex items-baseline justify-between text-sm">
+              <span className="text-zinc-500">Total</span>
+              <span className="font-mono font-semibold text-zinc-900">
+                GH&#x20B5; {previewTotalGhs.toFixed(2)}
+              </span>
+            </div>
           </div>
         ) : null}
-        {exceedsStock ? (
-          <p className="mt-2 text-rose-700">
-            Requested boxes exceed current stock. Reduce the quantity.
-          </p>
-        ) : null}
-      </div>
 
-      <label className="block">
-        <span className="text-sm font-medium text-slate-700">
-          Dispatch date
-        </span>
-        <input
-          type="date"
-          name="dispatchDate"
-          required
-          defaultValue={
-            mode.kind === "edit" ? mode.defaults.dispatchDate : today
-          }
-          className={inputClass}
-        />
-      </label>
+        <FormField label="Dispatch date">
+          <Input
+            type="date"
+            name="dispatchDate"
+            required
+            defaultValue={mode.kind === "edit" ? mode.defaults.dispatchDate : today}
+          />
+        </FormField>
 
-      <label className="block">
-        <span className="text-sm font-medium text-slate-700">
-          Note <span className="text-slate-400">(optional)</span>
-        </span>
-        <textarea
-          name="note"
-          rows={3}
-          defaultValue={mode.kind === "edit" ? mode.defaults.note ?? "" : ""}
-          className={inputClass}
-          placeholder="Anything the manager should know"
-        />
-      </label>
+        <FormField label="Note" optional>
+          <Textarea
+            name="note"
+            rows={3}
+            defaultValue={mode.kind === "edit" ? mode.defaults.note ?? "" : ""}
+            placeholder="Anything the manager should know"
+          />
+        </FormField>
 
-      {state && !state.ok ? (
-        <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700 ring-1 ring-rose-200">
-          {state.error}
-        </p>
-      ) : null}
+        {state && !state.ok ? <Alert>{state.error}</Alert> : null}
 
-      <div className="flex gap-2">
-        <button
-          type="submit"
-          disabled={isPending || exceedsStock || boxes <= 0}
-          className="flex-1 rounded-xl bg-slate-900 px-4 py-3 text-base font-medium text-white shadow-sm hover:bg-slate-700 disabled:opacity-50"
-        >
-          {isPending
-            ? "Submitting…"
-            : mode.kind === "create"
-              ? "Submit for approval"
-              : "Resubmit"}
-        </button>
-        <Link
-          href="/outbound"
-          className="flex-1 rounded-xl border border-slate-300 bg-white px-4 py-3 text-center text-base font-medium text-slate-700 hover:bg-slate-50"
-        >
-          Cancel
-        </Link>
-      </div>
+        <div className="flex gap-3 pt-1">
+          <Button type="submit" disabled={isPending} className="flex-1" size="lg">
+            {isPending
+              ? "Submitting..."
+              : mode.kind === "create"
+                ? "Submit for approval"
+                : "Resubmit"}
+          </Button>
+          <Link
+            href="/outbound"
+            className="flex-1 inline-flex items-center justify-center rounded-lg bg-white px-5 py-3 text-sm font-medium text-zinc-700 shadow-sm ring-1 ring-surface-border transition-colors hover:bg-zinc-50"
+          >
+            Cancel
+          </Link>
+        </div>
+      </FormCard>
     </form>
   );
 }

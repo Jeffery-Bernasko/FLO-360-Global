@@ -23,6 +23,7 @@ export async function requireUser(): Promise<AuthenticatedUser> {
       name: true,
       role: true,
       isActive: true,
+      mustChangePassword: true,
     },
   });
   if (!dbUser) throw new UnauthorizedError();
@@ -32,6 +33,7 @@ export async function requireUser(): Promise<AuthenticatedUser> {
     email: dbUser.email,
     name: dbUser.name,
     role: dbUser.role,
+    mustChangePassword: dbUser.mustChangePassword,
   };
 }
 
@@ -49,6 +51,7 @@ export async function requireManager(): Promise<AuthenticatedUser> {
       name: true,
       role: true,
       isActive: true,
+      mustChangePassword: true,
     },
   });
   if (!dbUser) throw new UnauthorizedError();
@@ -61,5 +64,6 @@ export async function requireManager(): Promise<AuthenticatedUser> {
     email: dbUser.email,
     name: dbUser.name,
     role: dbUser.role,
+    mustChangePassword: dbUser.mustChangePassword,
   };
 }

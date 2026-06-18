@@ -12,6 +12,7 @@ import {
   InboundFormError,
   editAndResubmitInbound,
   submitInbound,
+  type LineItemInput,
 } from "@/lib/inbound-forms";
 
 export type ActionResult<T> =
@@ -32,6 +33,24 @@ async function maybeUploadAttachment(formData: FormData): Promise<string | null>
   return result.key;
 }
 
+/**
+ * Extract line items from FormData. The form submits arrays like:
+ * lines[0].productId, lines[0].boxes, lines[1].productId, lines[1].boxes, ...
+ */
+function readLines(formData: FormData): LineItemInput[] {
+  const lines: LineItemInput[] = [];
+  for (let i = 0; ; i++) {
+    const productId = formData.get(`lines[${i}].productId`);
+    const boxes = formData.get(`lines[${i}].boxes`);
+    if (productId == null) break;
+    lines.push({
+      productId: String(productId),
+      boxes: String(boxes ?? "0"),
+    });
+  }
+  return lines;
+}
+
 export async function submitInboundAction(
   _prev: ActionResult<{ id: string }> | null,
   formData: FormData,
@@ -44,7 +63,7 @@ export async function submitInboundAction(
     const created = await submitInbound({
       actor,
       supplierId: String(formData.get("supplierId") ?? ""),
-      boxes: String(formData.get("boxes") ?? ""),
+      lines: readLines(formData),
       receivedDate: String(formData.get("receivedDate") ?? ""),
       note: String(formData.get("note") ?? "") || null,
       attachmentKey: uploadedKey,
@@ -52,6 +71,7 @@ export async function submitInboundAction(
 
     revalidatePath("/");
     revalidatePath("/inbound");
+    revalidatePath("/approvals");
     revalidatePath("/approvals/inbound");
     return { ok: true, data: { id: String(created.id) } };
   } catch (err) {
@@ -76,7 +96,7 @@ export async function editAndResubmitInboundAction(
       actor,
       formId,
       supplierId: String(formData.get("supplierId") ?? ""),
-      boxes: String(formData.get("boxes") ?? ""),
+      lines: readLines(formData),
       receivedDate: String(formData.get("receivedDate") ?? ""),
       note: String(formData.get("note") ?? "") || null,
       attachmentKey: uploadedKey ?? undefined,
@@ -85,6 +105,7 @@ export async function editAndResubmitInboundAction(
     revalidatePath("/");
     revalidatePath("/inbound");
     revalidatePath(`/inbound/${formId}`);
+    revalidatePath("/approvals");
     revalidatePath("/approvals/inbound");
     return { ok: true, data: { id: String(updated.id) } };
   } catch (err) {

@@ -20,6 +20,7 @@ export type AuthenticatedUser = {
   email: string;
   name: string;
   role: UserRole;
+  mustChangePassword: boolean;
 };
 
 /**
@@ -39,6 +40,7 @@ export function requireUserFromSession(
     email: session.user.email,
     name: session.user.name,
     role: session.user.role,
+    mustChangePassword: Boolean(session.user.mustChangePassword),
   };
 }
 

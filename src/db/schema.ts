@@ -35,6 +35,7 @@ export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
   email: text("email").notNull().unique(),
   passwordHash: text("password_hash").notNull(),
+  mustChangePassword: boolean("must_change_password").notNull().default(false),
   name: text("name").notNull(),
   role: userRoleEnum("role").notNull().default("worker"),
   isActive: boolean("is_active").notNull().default(true),
@@ -70,6 +71,9 @@ export const stockMovements = pgTable(
     reason: text("reason"),
     sourceFormKind: sourceFormKindEnum("source_form_kind"),
     sourceFormId: bigint("source_form_id", { mode: "bigint" }),
+    productId: uuid("product_id")
+      .notNull()
+      .references(() => products.id, { onDelete: "restrict" }),
     createdBy: uuid("created_by")
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),
@@ -82,6 +86,30 @@ export const stockMovements = pgTable(
     sourceIdx: index("stock_movements_source_idx").on(
       t.sourceFormKind,
       t.sourceFormId,
+    ),
+    productIdx: index("stock_movements_product_id_idx").on(t.productId),
+  }),
+);
+
+export const products = pgTable(
+  "products",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    description: text("description"),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdateFn(() => new Date()),
+  },
+  (t) => ({
+    activeNameIdx: index("products_active_name_idx").on(
+      t.isActive,
+      sql`lower(${t.name})`,
     ),
   }),
 );
@@ -143,7 +171,6 @@ export const inboundForms = pgTable(
     supplierId: uuid("supplier_id")
       .notNull()
       .references(() => suppliers.id, { onDelete: "restrict" }),
-    boxes: integer("boxes").notNull(),
     receivedDate: date("received_date").notNull(),
     note: text("note"),
     attachmentKey: text("attachment_key"),
@@ -170,8 +197,25 @@ export const inboundForms = pgTable(
       t.createdAt,
     ),
     createdByIdx: index("inbound_forms_created_by_idx").on(t.createdBy),
+  }),
+);
+
+export const inboundFormLines = pgTable(
+  "inbound_form_lines",
+  {
+    id: bigserial("id", { mode: "bigint" }).primaryKey(),
+    formId: bigint("form_id", { mode: "bigint" })
+      .notNull()
+      .references(() => inboundForms.id, { onDelete: "cascade" }),
+    productId: uuid("product_id")
+      .notNull()
+      .references(() => products.id, { onDelete: "restrict" }),
+    boxes: integer("boxes").notNull(),
+  },
+  (t) => ({
+    formIdIdx: index("inbound_form_lines_form_id_idx").on(t.formId),
     boxesPositive: check(
-      "inbound_forms_boxes_positive",
+      "inbound_form_lines_boxes_positive",
       sql`${t.boxes} > 0`,
     ),
   }),
@@ -184,13 +228,6 @@ export const outboundForms = pgTable(
     customerId: uuid("customer_id")
       .notNull()
       .references(() => customers.id, { onDelete: "restrict" }),
-    boxes: integer("boxes").notNull(),
-    /** Money is stored as integer pesewas. 1 GHS = 100 pesewas. */
-    unitPricePesewas: integer("unit_price_pesewas").notNull(),
-    /** Stored generated column = boxes * unit_price_pesewas. Always in sync. */
-    totalPesewas: integer("total_pesewas").generatedAlwaysAs(
-      sql`(boxes * unit_price_pesewas)`,
-    ),
     dispatchDate: date("dispatch_date").notNull(),
     note: text("note"),
     status: formStatusEnum("status").notNull().default("pending"),
@@ -218,14 +255,6 @@ export const outboundForms = pgTable(
       t.createdAt,
     ),
     createdByIdx: index("outbound_forms_created_by_idx").on(t.createdBy),
-    boxesPositive: check(
-      "outbound_forms_boxes_positive",
-      sql`${t.boxes} > 0`,
-    ),
-    unitPricePositive: check(
-      "outbound_forms_unit_price_positive",
-      sql`${t.unitPricePesewas} > 0`,
-    ),
   }),
 );
 
@@ -238,6 +267,8 @@ export type AuditLogEntry = typeof auditLog.$inferSelect;
 export type NewAuditLogEntry = typeof auditLog.$inferInsert;
 export type StockMovement = typeof stockMovements.$inferSelect;
 export type NewStockMovement = typeof stockMovements.$inferInsert;
+export type Product = typeof products.$inferSelect;
+export type NewProduct = typeof products.$inferInsert;
 export type Customer = typeof customers.$inferSelect;
 export type NewCustomer = typeof customers.$inferInsert;
 export type Supplier = typeof suppliers.$inferSelect;
@@ -245,5 +276,35 @@ export type NewSupplier = typeof suppliers.$inferInsert;
 export type FormStatus = (typeof formStatusEnum.enumValues)[number];
 export type InboundForm = typeof inboundForms.$inferSelect;
 export type NewInboundForm = typeof inboundForms.$inferInsert;
+export type InboundFormLine = typeof inboundFormLines.$inferSelect;
+export type NewInboundFormLine = typeof inboundFormLines.$inferInsert;
+export const outboundFormLines = pgTable(
+  "outbound_form_lines",
+  {
+    id: bigserial("id", { mode: "bigint" }).primaryKey(),
+    formId: bigint("form_id", { mode: "bigint" })
+      .notNull()
+      .references(() => outboundForms.id, { onDelete: "cascade" }),
+    productId: uuid("product_id")
+      .notNull()
+      .references(() => products.id, { onDelete: "restrict" }),
+    boxes: integer("boxes").notNull(),
+    unitPricePesewas: integer("unit_price_pesewas").notNull(),
+  },
+  (t) => ({
+    formIdIdx: index("outbound_form_lines_form_id_idx").on(t.formId),
+    boxesPositive: check(
+      "outbound_form_lines_boxes_positive",
+      sql`${t.boxes} > 0`,
+    ),
+    unitPricePositive: check(
+      "outbound_form_lines_unit_price_positive",
+      sql`${t.unitPricePesewas} > 0`,
+    ),
+  }),
+);
+
 export type OutboundForm = typeof outboundForms.$inferSelect;
 export type NewOutboundForm = typeof outboundForms.$inferInsert;
+export type OutboundFormLine = typeof outboundFormLines.$inferSelect;
+export type NewOutboundFormLine = typeof outboundFormLines.$inferInsert;

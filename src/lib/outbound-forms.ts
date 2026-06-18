@@ -1,15 +1,17 @@
-import { asc, desc, eq, sql } from "drizzle-orm";
+import { asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { put } from "@vercel/blob";
 import { db } from "@/db";
 import {
   customers,
   outboundForms,
+  outboundFormLines,
+  products,
   type Customer,
   type OutboundForm,
 } from "@/db/schema";
 import { log } from "@/audit";
-import { recordMovement, getCurrentStock } from "@/lib/stock-ledger";
+import { recordMovement, getStockForProduct } from "@/lib/stock-ledger";
 import { renderInvoicePdfBuffer, type InvoiceData } from "@/lib/invoice-pdf";
 
 export class OutboundFormError extends Error {
@@ -23,8 +25,25 @@ export class OutboundFormError extends Error {
 
 type Actor = { id: string; role: "worker" | "manager" };
 
-const submitSchema = z.object({
-  customerId: z.string().uuid("Pick a customer."),
+// --- Line item types ---
+
+export type LineItemInput = {
+  productId: string;
+  boxes: number | string;
+  unitPricePesewas: number | string;
+};
+
+export type OutboundFormLineWithProduct = {
+  id: bigint;
+  formId: bigint;
+  productId: string;
+  boxes: number;
+  unitPricePesewas: number;
+  productName: string;
+};
+
+const lineSchema = z.object({
+  productId: z.string().uuid("Pick a product."),
   boxes: z.coerce
     .number({ invalid_type_error: "Boxes must be a number." })
     .int("Boxes must be a whole number.")
@@ -33,6 +52,13 @@ const submitSchema = z.object({
     .number({ invalid_type_error: "Unit price must be a number." })
     .int("Unit price must be a whole number of pesewas.")
     .positive("Unit price must be greater than zero."),
+});
+
+const submitSchema = z.object({
+  customerId: z.string().uuid("Pick a customer."),
+  lines: z
+    .array(lineSchema)
+    .min(1, "At least one product line is required."),
   dispatchDate: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Dispatch date is required."),
@@ -42,8 +68,7 @@ const submitSchema = z.object({
 export type SubmitOutboundInput = {
   actor: Actor;
   customerId: string;
-  boxes: number | string;
-  unitPricePesewas: number | string;
+  lines: LineItemInput[];
   dispatchDate: string;
   note?: string | null;
 };
@@ -56,26 +81,46 @@ function parseSubmit(input: SubmitOutboundInput) {
       parsed.error.issues[0]?.message ?? "Invalid form input.",
     );
   }
+  // Reject duplicate products.
+  const ids = parsed.data.lines.map((l) => l.productId);
+  if (new Set(ids).size !== ids.length) {
+    throw new OutboundFormError(
+      "invalid",
+      "Each product can only appear once per form.",
+    );
+  }
   return parsed.data;
 }
 
-/**
- * Lightweight check used by the form UI to disable submission when the
- * requested boxes exceed current stock. The authoritative check happens
- * inside the approval transaction.
- */
-export async function quoteOutbound({ boxes }: { boxes: number }): Promise<{
-  currentStock: number;
-  ok: boolean;
-}> {
-  const currentStock = await getCurrentStock();
-  return { currentStock, ok: boxes > 0 && boxes <= currentStock };
+async function validateProducts(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  productIds: string[],
+): Promise<void> {
+  const rows = await tx
+    .select({ id: products.id, isActive: products.isActive })
+    .from(products)
+    .where(inArray(products.id, productIds))
+    .limit(productIds.length);
+  const productsById = new Map(rows.map((row) => [row.id, row]));
+
+  for (const productId of productIds) {
+    const product = productsById.get(productId);
+    if (!product || !product.isActive) {
+      throw new OutboundFormError(
+        "invalid_product",
+        "One or more products are not found or inactive.",
+      );
+    }
+  }
 }
 
-export async function submitOutbound(input: SubmitOutboundInput): Promise<OutboundForm> {
+export async function submitOutbound(
+  input: SubmitOutboundInput,
+): Promise<OutboundForm> {
   const data = parseSubmit(input);
 
   return db.transaction(async (tx) => {
+    // Validate customer.
     const customerRows = await tx
       .select({ id: customers.id, isActive: customers.isActive })
       .from(customers)
@@ -88,31 +133,50 @@ export async function submitOutbound(input: SubmitOutboundInput): Promise<Outbou
       );
     }
 
-    const [stockRow] = await tx
-      .select({
-        total: sql<string>`COALESCE(SUM(boxes_delta), 0)`.as("total"),
-      })
-      .from(sql`stock_movements`);
-    const currentStock = Number(stockRow?.total ?? 0);
-    if (data.boxes > currentStock) {
-      throw new OutboundFormError(
-        "insufficient_stock",
-        `Only ${currentStock} boxes in stock — cannot release ${data.boxes}.`,
-      );
+    // Validate products.
+    await validateProducts(
+      tx,
+      data.lines.map((l) => l.productId),
+    );
+
+    // Lock product rows to serialize concurrent stock checks.
+    await tx
+      .select({ id: products.id })
+      .from(products)
+      .where(inArray(products.id, data.lines.map((l) => l.productId)))
+      .for("update");
+
+    // Check per-product stock (now serialized).
+    for (const line of data.lines) {
+      const stock = await getStockForProduct(line.productId, tx);
+      if (line.boxes > stock) {
+        throw new OutboundFormError(
+          "insufficient_stock",
+          `Insufficient stock for one or more products.`,
+        );
+      }
     }
 
     const [created] = await tx
       .insert(outboundForms)
       .values({
         customerId: data.customerId,
-        boxes: data.boxes,
-        unitPricePesewas: data.unitPricePesewas,
         dispatchDate: data.dispatchDate,
         note: data.note ?? null,
         status: "pending",
         createdBy: input.actor.id,
       })
       .returning();
+
+    // Insert line items.
+    await tx.insert(outboundFormLines).values(
+      data.lines.map((l) => ({
+        formId: created.id,
+        productId: l.productId,
+        boxes: l.boxes,
+        unitPricePesewas: l.unitPricePesewas,
+      })),
+    );
 
     await log(
       {
@@ -122,9 +186,12 @@ export async function submitOutbound(input: SubmitOutboundInput): Promise<Outbou
         entityId: String(created.id),
         payload: {
           customerId: created.customerId,
-          boxes: created.boxes,
-          unitPricePesewas: created.unitPricePesewas,
           dispatchDate: created.dispatchDate,
+          lines: data.lines.map((l) => ({
+            productId: l.productId,
+            boxes: l.boxes,
+            unitPricePesewas: l.unitPricePesewas,
+          })),
         },
       },
       tx,
@@ -138,8 +205,7 @@ export type EditAndResubmitOutboundInput = {
   actor: Actor;
   formId: bigint;
   customerId: string;
-  boxes: number | string;
-  unitPricePesewas: number | string;
+  lines: LineItemInput[];
   dispatchDate: string;
   note?: string | null;
 };
@@ -150,8 +216,7 @@ export async function editAndResubmitOutbound(
   const data = parseSubmit({
     actor: input.actor,
     customerId: input.customerId,
-    boxes: input.boxes,
-    unitPricePesewas: input.unitPricePesewas,
+    lines: input.lines,
     dispatchDate: input.dispatchDate,
     note: input.note,
   });
@@ -177,6 +242,7 @@ export async function editAndResubmitOutbound(
       );
     }
 
+    // Validate customer.
     const customerRows = await tx
       .select({ id: customers.id, isActive: customers.isActive })
       .from(customers)
@@ -189,12 +255,31 @@ export async function editAndResubmitOutbound(
       );
     }
 
+    // Validate products.
+    await validateProducts(
+      tx,
+      data.lines.map((l) => l.productId),
+    );
+
+    // Delete old lines.
+    await tx
+      .delete(outboundFormLines)
+      .where(eq(outboundFormLines.formId, input.formId));
+
+    // Insert new lines.
+    await tx.insert(outboundFormLines).values(
+      data.lines.map((l) => ({
+        formId: input.formId,
+        productId: l.productId,
+        boxes: l.boxes,
+        unitPricePesewas: l.unitPricePesewas,
+      })),
+    );
+
     const [updated] = await tx
       .update(outboundForms)
       .set({
         customerId: data.customerId,
-        boxes: data.boxes,
-        unitPricePesewas: data.unitPricePesewas,
         dispatchDate: data.dispatchDate,
         note: data.note ?? null,
         status: "pending",
@@ -212,18 +297,11 @@ export async function editAndResubmitOutbound(
         entityType: "outbound_form",
         entityId: String(input.formId),
         payload: {
-          before: {
-            customerId: existing.customerId,
-            boxes: existing.boxes,
-            unitPricePesewas: existing.unitPricePesewas,
-            dispatchDate: existing.dispatchDate,
-          },
-          after: {
-            customerId: updated.customerId,
-            boxes: updated.boxes,
-            unitPricePesewas: updated.unitPricePesewas,
-            dispatchDate: updated.dispatchDate,
-          },
+          lines: data.lines.map((l) => ({
+            productId: l.productId,
+            boxes: l.boxes,
+            unitPricePesewas: l.unitPricePesewas,
+          })),
         },
       },
       tx,
@@ -247,8 +325,6 @@ export async function approveOutbound(input: ApproveOutboundInput): Promise<Outb
     throw new OutboundFormError("forbidden", "Only managers can approve.");
   }
 
-  // Read warehouse identity outside the transaction (env reads are cheap and
-  // not part of the atomicity guarantee).
   const warehouseName =
     process.env.WAREHOUSE_NAME?.trim() || "FLO 360 Global";
   const warehouseContact =
@@ -270,25 +346,43 @@ export async function approveOutbound(input: ApproveOutboundInput): Promise<Outb
       );
     }
 
-    // Re-check current stock inside the transaction — authoritative.
-    const [stockRow] = await tx
+    // Load line items.
+    const lines = await tx
       .select({
-        total: sql<string>`COALESCE(SUM(boxes_delta), 0)`.as("total"),
+        id: outboundFormLines.id,
+        formId: outboundFormLines.formId,
+        productId: outboundFormLines.productId,
+        boxes: outboundFormLines.boxes,
+        unitPricePesewas: outboundFormLines.unitPricePesewas,
+        productName: products.name,
       })
-      .from(sql`stock_movements`);
-    const currentStock = Number(stockRow?.total ?? 0);
-    if (existing.boxes > currentStock) {
-      throw new OutboundFormError(
-        "insufficient_stock",
-        `Only ${currentStock} boxes in stock — cannot release ${existing.boxes}.`,
-      );
+      .from(outboundFormLines)
+      .innerJoin(products, eq(outboundFormLines.productId, products.id))
+      .where(eq(outboundFormLines.formId, input.formId));
+
+    // Lock product rows so concurrent approvals for the same products serialize.
+    const productIds = lines.map((l) => l.productId);
+    await tx
+      .select({ id: products.id })
+      .from(products)
+      .where(inArray(products.id, productIds))
+      .for("update");
+
+    // Check per-product stock inside the transaction (now serialized).
+    for (const line of lines) {
+      const stock = await getStockForProduct(line.productId, tx);
+      if (line.boxes > stock) {
+        throw new OutboundFormError(
+          "insufficient_stock",
+          `Insufficient stock for ${line.productName} — only ${stock} boxes available.`,
+        );
+      }
     }
 
     // Claim next invoice number.
     const seqRow = await tx.execute(
       sql<{ nextval: string }>`SELECT nextval('invoice_seq') AS nextval`,
     );
-    // drizzle/postgres-js execute returns either an array or {rows: []} shape.
     const raw =
       (Array.isArray(seqRow) ? seqRow[0] : (seqRow as { rows?: unknown[] }).rows?.[0]) ??
       null;
@@ -310,58 +404,61 @@ export async function approveOutbound(input: ApproveOutboundInput): Promise<Outb
       );
     }
 
-    // Deduct stock via the ledger.
-    await recordMovement(
-      {
-        kind: "outbound",
-        boxesDelta: -existing.boxes,
-        reason: `Outbound form #${existing.id} → ${customer.name}`,
-        sourceFormKind: "outbound",
-        sourceFormId: existing.id,
-        actor: { id: input.actor.id },
-      },
-      tx,
-    );
-
-    // Render the PDF inside the transaction. If rendering or upload fails
-    // the whole tx rolls back — no stock movement, no claimed invoice
-    // number visible on a form (the sequence may still have advanced, which
-    // is acceptable).
-    const invoiceData: InvoiceData = {
-      invoiceNumber,
-      date: decidedAt,
-      warehouseName,
-      warehouseContact,
-      customer: {
-        name: customer.name,
-        phone: customer.phone,
-        location: customer.location,
-      },
-      lineItem: {
-        description: "Sanitary product, 24 pcs/box",
-        boxes: existing.boxes,
-        unitPricePesewas: existing.unitPricePesewas,
-        totalPesewas: existing.boxes * existing.unitPricePesewas,
-      },
-    };
-
-    const pdfBuffer = await renderInvoicePdfBuffer(invoiceData);
-    const pdfKey = `invoices/${decidedAt.getFullYear()}/${invoiceNumber}.pdf`;
-
-    const token = process.env.BLOB_READ_WRITE_TOKEN;
-    if (!token) {
-      throw new OutboundFormError(
-        "blob_not_configured",
-        "Blob storage is not configured. Set BLOB_READ_WRITE_TOKEN to enable invoice PDFs.",
+    // Record one stock movement per line.
+    for (const line of lines) {
+      await recordMovement(
+        {
+          kind: "outbound",
+          boxesDelta: -line.boxes,
+          reason: `Outbound form #${existing.id} → ${customer.name}`,
+          sourceFormKind: "outbound",
+          sourceFormId: existing.id,
+          productId: line.productId,
+          actor: { id: input.actor.id },
+        },
+        tx,
       );
     }
 
-    await put(pdfKey, pdfBuffer, {
-      access: "public",
-      contentType: "application/pdf",
-      token,
-      addRandomSuffix: false,
-    });
+    // Render the PDF only when Blob storage is configured.
+    const token = process.env.BLOB_READ_WRITE_TOKEN;
+    let pdfKey: string | null = null;
+
+    if (token) {
+      const totalPesewas = lines.reduce(
+        (s, l) => s + l.boxes * l.unitPricePesewas,
+        0,
+      );
+
+      const invoiceData: InvoiceData = {
+        invoiceNumber,
+        date: decidedAt,
+        warehouseName,
+        warehouseContact,
+        customer: {
+          name: customer.name,
+          phone: customer.phone,
+          location: customer.location,
+        },
+        lineItems: lines.map((l) => ({
+          productName: l.productName,
+          boxes: l.boxes,
+          unitPricePesewas: l.unitPricePesewas,
+          subtotalPesewas: l.boxes * l.unitPricePesewas,
+        })),
+        totalPesewas,
+      };
+
+      const pdfBuffer = await renderInvoicePdfBuffer(invoiceData);
+      pdfKey = `invoices/${decidedAt.getFullYear()}/${invoiceNumber}.pdf`;
+
+      await put(pdfKey, pdfBuffer, {
+        access: "public",
+        contentType: "application/pdf",
+        token,
+        addRandomSuffix: false,
+      });
+    }
 
     const [updated] = await tx
       .update(outboundForms)
@@ -383,10 +480,15 @@ export async function approveOutbound(input: ApproveOutboundInput): Promise<Outb
         entityType: "outbound_form",
         entityId: String(input.formId),
         payload: {
-          boxes: existing.boxes,
           customerId: existing.customerId,
           invoiceNumber,
-          totalPesewas: existing.boxes * existing.unitPricePesewas,
+          totalPesewas: lines.reduce((s, l) => s + l.boxes * l.unitPricePesewas, 0),
+          lines: lines.map((l) => ({
+            productId: l.productId,
+            productName: l.productName,
+            boxes: l.boxes,
+            unitPricePesewas: l.unitPricePesewas,
+          })),
         },
       },
       tx,
@@ -456,15 +558,18 @@ export async function rejectOutbound(input: RejectOutboundInput): Promise<Outbou
 // ---------- read helpers ----------
 
 export type OutboundFormRow = OutboundForm & {
+  /** Computed from line items. */
+  boxes: number;
+  /** Computed from line items. */
+  totalPesewas: number;
   customerName: string;
 };
 
 const formWithCustomerColumns = {
   id: outboundForms.id,
   customerId: outboundForms.customerId,
-  boxes: outboundForms.boxes,
-  unitPricePesewas: outboundForms.unitPricePesewas,
-  totalPesewas: outboundForms.totalPesewas,
+  boxes: sql<number>`COALESCE((SELECT SUM(boxes) FROM outbound_form_lines WHERE form_id = ${outboundForms.id}), 0)`.mapWith(Number).as("boxes"),
+  totalPesewas: sql<number>`COALESCE((SELECT SUM(boxes * unit_price_pesewas) FROM outbound_form_lines WHERE form_id = ${outboundForms.id}), 0)`.mapWith(Number).as("total_pesewas"),
   dispatchDate: outboundForms.dispatchDate,
   note: outboundForms.note,
   status: outboundForms.status,
@@ -509,7 +614,13 @@ export async function listPendingOutboundForms(): Promise<OutboundFormRow[]> {
 
 export async function getOutboundForm(
   formId: bigint,
-): Promise<(OutboundFormRow & { customer: Customer | null }) | null> {
+): Promise<
+  | (OutboundFormRow & {
+      customer: Customer | null;
+      lines: OutboundFormLineWithProduct[];
+    })
+  | null
+> {
   const rows = await db
     .select({ form: outboundForms, customer: customers })
     .from(outboundForms)
@@ -518,10 +629,27 @@ export async function getOutboundForm(
     .limit(1);
   if (rows.length === 0) return null;
   const r = rows[0];
+
+  const lines = await db
+    .select({
+      id: outboundFormLines.id,
+      formId: outboundFormLines.formId,
+      productId: outboundFormLines.productId,
+      boxes: outboundFormLines.boxes,
+      unitPricePesewas: outboundFormLines.unitPricePesewas,
+      productName: products.name,
+    })
+    .from(outboundFormLines)
+    .innerJoin(products, eq(outboundFormLines.productId, products.id))
+    .where(eq(outboundFormLines.formId, formId));
+
   return {
     ...r.form,
+    boxes: lines.reduce((s, l) => s + l.boxes, 0),
+    totalPesewas: lines.reduce((s, l) => s + l.boxes * l.unitPricePesewas, 0),
     customerName: r.customer?.name ?? "(unknown)",
     customer: r.customer,
+    lines,
   };
 }
 

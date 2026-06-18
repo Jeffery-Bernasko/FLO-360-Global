@@ -2,8 +2,12 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/auth-server";
 import { UnauthorizedError } from "@/auth-helpers";
-import { TopNav } from "@/components/top-nav";
+import { AppShell } from "@/components/app-shell";
 import { StatusBadge } from "@/components/status-badge";
+import { PageHeader } from "@/components/ui/page-header";
+import { LinkButton } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { IconChevron } from "@/components/icons";
 import { listMyInboundForms } from "@/lib/inbound-forms";
 
 export default async function InboundListPage() {
@@ -18,54 +22,54 @@ export default async function InboundListPage() {
   const forms = await listMyInboundForms(me.id);
 
   return (
-    <>
-      <TopNav user={me} />
-      <main className="mx-auto max-w-3xl px-4 py-6">
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-semibold">Inbound</h1>
-            <p className="text-sm text-slate-500">
-              Goods coming in from suppliers — your submissions.
-            </p>
-          </div>
-          <Link
-            href="/inbound/new"
-            className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-slate-700"
-          >
-            New inbound
-          </Link>
-        </div>
+    <AppShell user={me}>
+      <PageHeader
+        title="Inbound"
+        description="Goods coming in from suppliers -- your submissions."
+        actions={<LinkButton href="/inbound/new">New inbound</LinkButton>}
+      />
 
-        <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-slate-200">
-          {forms.length === 0 ? (
-            <p className="p-4 text-sm text-slate-500">
-              You haven&apos;t submitted any inbound forms yet.
-            </p>
-          ) : (
-            <ul className="divide-y divide-slate-200">
+      {forms.length === 0 ? (
+        <EmptyState
+          title="No inbound forms yet"
+          description="Submit your first inbound form to record a shipment."
+          actionLabel="New inbound"
+          actionHref="/inbound/new"
+        />
+      ) : (
+        <div className="overflow-x-auto rounded-xl bg-white ring-1 ring-surface-border">
+          <table className="min-w-full divide-y divide-surface-border text-sm">
+            <thead>
+              <tr className="bg-zinc-50/60">
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">Supplier</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">Status</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-zinc-500">Boxes</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">Received</th>
+                <th className="px-4 py-3 w-8"><span className="sr-only">View</span></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-surface-border/60">
               {forms.map((f) => (
-                <li key={String(f.id)}>
-                  <Link
-                    href={`/inbound/${f.id}`}
-                    className="flex items-center justify-between gap-4 p-4 hover:bg-slate-50"
-                  >
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="truncate font-medium">{f.supplierName}</p>
-                        <StatusBadge status={f.status} />
-                      </div>
-                      <p className="text-sm text-slate-500">
-                        {f.boxes} boxes · received {f.receivedDate}
-                      </p>
-                    </div>
-                    <span aria-hidden className="text-slate-400">›</span>
-                  </Link>
-                </li>
+                <tr key={String(f.id)} className="transition-colors hover:bg-emerald-50/30">
+                  <td className="px-4 py-3">
+                    <Link href={`/inbound/${f.id}`} className="font-medium text-zinc-900 hover:text-green-800">
+                      {f.supplierName}
+                    </Link>
+                  </td>
+                  <td className="px-4 py-3"><StatusBadge status={f.status} /></td>
+                  <td className="px-4 py-3 text-right font-mono text-zinc-700">{f.boxes}</td>
+                  <td className="px-4 py-3 text-zinc-500">{f.receivedDate}</td>
+                  <td className="px-4 py-3">
+                    <Link href={`/inbound/${f.id}`} className="text-zinc-400 hover:text-green-700" aria-label={`View inbound #${f.id}`}>
+                      <IconChevron width={16} height={16} />
+                    </Link>
+                  </td>
+                </tr>
               ))}
-            </ul>
-          )}
+            </tbody>
+          </table>
         </div>
-      </main>
-    </>
+      )}
+    </AppShell>
   );
 }

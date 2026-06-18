@@ -29,6 +29,7 @@ export async function approveInboundAction(
 
     const updated = await approveInbound({ actor, formId });
     revalidatePath("/");
+    revalidatePath("/approvals");
     revalidatePath("/approvals/inbound");
     revalidatePath(`/approvals/inbound/${formId}`);
     revalidatePath("/inbound");
@@ -52,6 +53,7 @@ export async function rejectInboundAction(
 
     const updated = await rejectInbound({ actor, formId, reason });
     revalidatePath("/");
+    revalidatePath("/approvals");
     revalidatePath("/approvals/inbound");
     revalidatePath(`/approvals/inbound/${formId}`);
     revalidatePath("/inbound");

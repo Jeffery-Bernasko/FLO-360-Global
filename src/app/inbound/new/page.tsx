@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import { requireUser } from "@/auth-server";
 import { UnauthorizedError } from "@/auth-helpers";
-import { TopNav } from "@/components/top-nav";
+import { AppShell } from "@/components/app-shell";
+import { PageHeader } from "@/components/ui/page-header";
 import { InboundFormFields } from "../inbound-form-fields";
 
 export default async function NewInboundFormPage() {
@@ -14,18 +15,14 @@ export default async function NewInboundFormPage() {
   }
 
   return (
-    <>
-      <TopNav user={me} />
-      <main className="mx-auto max-w-md px-4 py-6">
-        <header className="mb-6">
-          <h1 className="text-xl font-semibold">New inbound shipment</h1>
-          <p className="text-sm text-slate-500">
-            Submit for the manager&apos;s approval. Stock is added once approved.
-          </p>
-        </header>
-
+    <AppShell user={me}>
+      <div className="mx-auto max-w-lg">
+        <PageHeader
+          title="New Inbound Shipment"
+          description="Submit for the manager's approval. Stock is added once approved."
+        />
         <InboundFormFields mode={{ kind: "create" }} />
-      </main>
-    </>
+      </div>
+    </AppShell>
   );
 }

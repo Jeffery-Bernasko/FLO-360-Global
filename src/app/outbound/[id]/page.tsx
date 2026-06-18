@@ -1,11 +1,15 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { requireUser } from "@/auth-server";
 import { UnauthorizedError } from "@/auth-helpers";
-import { TopNav } from "@/components/top-nav";
+import { AppShell } from "@/components/app-shell";
 import { StatusBadge } from "@/components/status-badge";
+import { Card } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
+import { Alert } from "@/components/ui/alert";
+import { LinkButton } from "@/components/ui/button";
+import { DetailField, DetailGrid } from "@/components/ui/detail-field";
+import { IconFile } from "@/components/icons";
 import { formatGhs, formatGhsPlain } from "@/lib/money";
-import { getCurrentStock } from "@/lib/stock-ledger";
 import { getAttachmentUrl } from "@/lib/attachments";
 import {
   formatInvoiceLabel,
@@ -35,80 +39,113 @@ export default async function OutboundDetailPage({ params }: PageProps) {
   const isOwnerAndRejected =
     form.status === "rejected" && form.createdBy === me.id;
 
-  const [currentStock, invoiceUrl] = await Promise.all([
-    isOwnerAndRejected ? getCurrentStock() : Promise.resolve(0),
-    form.invoicePdfKey ? getAttachmentUrl(form.invoicePdfKey) : null,
-  ]);
-
-  const totalPesewas = form.totalPesewas ?? form.boxes * form.unitPricePesewas;
+  const invoiceUrl = form.invoicePdfKey
+    ? await getAttachmentUrl(form.invoicePdfKey)
+    : null;
 
   return (
-    <>
-      <TopNav user={me} />
-      <main className="mx-auto max-w-md px-4 py-6">
-        <header className="mb-6">
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-semibold">
-              Outbound #{String(form.id)}
-            </h1>
-            <StatusBadge status={form.status} />
-          </div>
-          <p className="text-sm text-slate-500">{form.customerName}</p>
-        </header>
+    <AppShell user={me}>
+      <div className="mx-auto max-w-lg">
+        <PageHeader
+          title={`Outbound #${String(form.id)}`}
+          description={form.customerName}
+          actions={<StatusBadge status={form.status} />}
+        />
 
-        <section className="space-y-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-          <Field label="Boxes" value={`${form.boxes}`} />
-          <Field label="Unit price" value={formatGhs(form.unitPricePesewas)} />
-          <Field label="Total" value={formatGhs(totalPesewas)} />
-          <Field label="Dispatch date" value={form.dispatchDate} />
-          {form.note ? <Field label="Note" value={form.note} /> : null}
-          {form.status === "approved" && form.invoiceNumber ? (
-            <Field
-              label="Invoice"
-              value={formatInvoiceLabel(
-                form.invoiceNumber,
-                form.decidedAt
-                  ? new Date(form.decidedAt).getFullYear()
-                  : new Date().getFullYear(),
-              )}
-            />
-          ) : null}
+        <Card>
+          {/* Line items table */}
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-surface-border text-sm">
+              <thead>
+                <tr className="bg-zinc-50/60">
+                  <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">Product</th>
+                  <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wider text-zinc-500">Boxes</th>
+                  <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wider text-zinc-500">Unit price</th>
+                  <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wider text-zinc-500">Subtotal</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-surface-border/60">
+                {form.lines.map((line) => (
+                  <tr key={String(line.id)}>
+                    <td className="px-3 py-2 font-medium text-zinc-900">{line.productName}</td>
+                    <td className="px-3 py-2 text-right font-mono text-zinc-700">{line.boxes}</td>
+                    <td className="px-3 py-2 text-right font-mono text-zinc-700">{formatGhs(line.unitPricePesewas)}</td>
+                    <td className="px-3 py-2 text-right font-mono text-zinc-700">{formatGhs(line.boxes * line.unitPricePesewas)}</td>
+                  </tr>
+                ))}
+                <tr className="bg-zinc-50/60 font-semibold">
+                  <td className="px-3 py-2 text-zinc-700">Total</td>
+                  <td className="px-3 py-2 text-right font-mono text-zinc-900">
+                    {form.lines.reduce((s, l) => s + l.boxes, 0)}
+                  </td>
+                  <td className="px-3 py-2" />
+                  <td className="px-3 py-2 text-right font-mono text-zinc-900">
+                    {formatGhs(form.totalPesewas)}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <DetailGrid>
+            <DetailField label="Dispatch date" value={form.dispatchDate} />
+            {form.note ? <DetailField label="Note" value={form.note} /> : null}
+            {form.status === "approved" && form.invoiceNumber ? (
+              <DetailField
+                label="Invoice"
+                value={formatInvoiceLabel(
+                  form.invoiceNumber,
+                  form.decidedAt
+                    ? new Date(form.decidedAt).getFullYear()
+                    : new Date().getFullYear(),
+                )}
+              />
+            ) : null}
+          </DetailGrid>
+
           {invoiceUrl ? (
-            <div>
-              <p className="text-sm font-medium text-slate-500">Invoice PDF</p>
+            <div className="mt-5 pt-5 border-t border-surface-border">
               <a
                 href={invoiceUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="mt-1 inline-block rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                className="inline-flex items-center gap-2 rounded-lg bg-zinc-50 px-3 py-2 text-sm font-medium text-zinc-700 ring-1 ring-surface-border transition-colors hover:bg-zinc-100"
               >
+                <IconFile width={16} height={16} />
                 Open invoice
               </a>
             </div>
           ) : null}
+
           {form.status === "rejected" && form.decisionReason ? (
-            <div className="rounded-lg bg-rose-50 p-3 text-sm text-rose-800 ring-1 ring-rose-200">
-              <p className="font-medium">Rejected</p>
-              <p className="mt-1">{form.decisionReason}</p>
+            <div className="mt-5">
+              <Alert variant="error">
+                <p className="font-medium">Rejected</p>
+                <p className="mt-1">{form.decisionReason}</p>
+              </Alert>
             </div>
           ) : null}
-        </section>
+        </Card>
 
         {isOwnerAndRejected ? (
           <section className="mt-6">
-            <h2 className="mb-2 text-sm font-semibold">Edit and resubmit</h2>
+            <h2 className="mb-3 font-display text-base font-semibold text-zinc-900">
+              Edit and resubmit
+            </h2>
             <OutboundFormFields
               mode={{
                 kind: "edit",
                 formId: String(form.id),
-                currentStock,
                 defaults: {
                   customer: {
                     id: form.customerId,
                     name: form.customerName,
                   },
-                  boxes: form.boxes,
-                  unitPriceGhs: formatGhsPlain(form.unitPricePesewas),
+                  lines: form.lines.map((l) => ({
+                    product: { id: l.productId, name: l.productName },
+                    boxes: l.boxes,
+                    unitPriceGhs: formatGhsPlain(l.unitPricePesewas),
+                  })),
                   dispatchDate: form.dispatchDate,
                   note: form.note,
                 },
@@ -116,25 +153,13 @@ export default async function OutboundDetailPage({ params }: PageProps) {
             />
           </section>
         ) : (
-          <div className="mt-6 flex">
-            <Link
-              href="/outbound"
-              className="flex-1 rounded-xl border border-slate-300 bg-white px-4 py-3 text-center text-base font-medium text-slate-700 hover:bg-slate-50"
-            >
+          <div className="mt-6">
+            <LinkButton href="/outbound" variant="secondary" size="lg" className="w-full">
               Back to list
-            </Link>
+            </LinkButton>
           </div>
         )}
-      </main>
-    </>
-  );
-}
-
-function Field({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className="text-sm font-medium text-slate-500">{label}</p>
-      <p className="mt-0.5 text-base text-slate-900">{value}</p>
-    </div>
+      </div>
+    </AppShell>
   );
 }

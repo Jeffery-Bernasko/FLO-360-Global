@@ -2,9 +2,11 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireManager } from "@/auth-server";
 import { ForbiddenError, UnauthorizedError } from "@/auth-helpers";
-import { TopNav } from "@/components/top-nav";
+import { AppShell } from "@/components/app-shell";
+import { PageHeader } from "@/components/ui/page-header";
+import { EmptyState } from "@/components/ui/empty-state";
+import { IconChevron } from "@/components/icons";
 import { listPendingOutboundForms } from "@/lib/outbound-forms";
-import { getCurrentStock } from "@/lib/stock-ledger";
 import { formatGhs } from "@/lib/money";
 
 export default async function PendingOutboundPage() {
@@ -17,62 +19,56 @@ export default async function PendingOutboundPage() {
     throw err;
   }
 
-  const [pending, currentStock] = await Promise.all([
-    listPendingOutboundForms(),
-    getCurrentStock(),
-  ]);
+  const pending = await listPendingOutboundForms();
 
   return (
-    <>
-      <TopNav user={me} />
-      <main className="mx-auto max-w-3xl px-4 py-6">
-        <header className="mb-6">
-          <div className="flex items-baseline justify-between">
-            <h1 className="text-xl font-semibold">Pending outbound</h1>
-            <p className="text-sm text-slate-500">
-              Current stock: <strong>{currentStock}</strong> boxes
-            </p>
-          </div>
-          <p className="mt-1 text-sm text-slate-500">
-            Approving deducts boxes from stock and generates an invoice.
-          </p>
-        </header>
+    <AppShell user={me}>
+      <PageHeader
+        title="Pending Outbound"
+        description="Approving deducts boxes from stock and generates an invoice."
+      />
 
-        <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-slate-200">
-          {pending.length === 0 ? (
-            <p className="p-4 text-sm text-slate-500">All caught up ✓</p>
-          ) : (
-            <ul className="divide-y divide-slate-200">
-              {pending.map((f) => {
-                const total = f.totalPesewas ?? f.boxes * f.unitPricePesewas;
-                const insufficient = f.boxes > currentStock;
-                return (
-                  <li key={String(f.id)}>
-                    <Link
-                      href={`/approvals/outbound/${f.id}`}
-                      className="flex items-center justify-between gap-4 p-4 hover:bg-slate-50"
-                    >
-                      <div className="min-w-0">
-                        <p className="truncate font-medium">{f.customerName}</p>
-                        <p className="text-sm text-slate-500">
-                          {f.boxes} boxes · {formatGhs(total)} · dispatch{" "}
-                          {f.dispatchDate}
-                        </p>
-                        {insufficient ? (
-                          <p className="mt-1 text-xs font-medium text-rose-700">
-                            Insufficient stock ({currentStock} available)
-                          </p>
-                        ) : null}
-                      </div>
-                      <span aria-hidden className="text-slate-400">›</span>
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
+      {pending.length === 0 ? (
+        <EmptyState
+          title="All caught up"
+          description="No outbound forms are waiting for your approval."
+        />
+      ) : (
+        <div className="overflow-x-auto rounded-xl bg-white ring-1 ring-surface-border">
+          <table className="min-w-full divide-y divide-surface-border text-sm">
+            <thead>
+              <tr className="bg-zinc-50/60">
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">Customer</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-zinc-500">Boxes</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-zinc-500">Total</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">Dispatch</th>
+                <th className="px-4 py-3 w-8"><span className="sr-only">Review</span></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-surface-border/60">
+              {pending.map((f) => (
+                  <tr key={String(f.id)} className="transition-colors hover:bg-emerald-50/30">
+                    <td className="px-4 py-3">
+                      <Link href={`/approvals/outbound/${f.id}`} className="font-medium text-zinc-900 hover:text-green-800">
+                        {f.customerName}
+                      </Link>
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono text-zinc-700">
+                      {f.boxes}
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono text-zinc-700">{formatGhs(f.totalPesewas)}</td>
+                    <td className="px-4 py-3 text-zinc-500">{f.dispatchDate}</td>
+                    <td className="px-4 py-3">
+                      <Link href={`/approvals/outbound/${f.id}`} className="text-zinc-400 hover:text-green-700" aria-label="Review">
+                        <IconChevron width={16} height={16} />
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
         </div>
-      </main>
-    </>
+      )}
+    </AppShell>
   );
 }

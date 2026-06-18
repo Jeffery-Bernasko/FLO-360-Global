@@ -2,6 +2,10 @@
 
 import { useActionState, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { FormField } from "@/components/ui/form-field";
+import { Alert } from "@/components/ui/alert";
 import {
   approveInboundAction,
   rejectInboundAction,
@@ -23,7 +27,7 @@ export function DecisionButtons({ formId }: { formId: string }) {
   >(rejectInboundAction, null);
 
   if (approveState?.ok || rejectState?.ok) {
-    setTimeout(() => router.push("/approvals/inbound"), 0);
+    setTimeout(() => router.push("/approvals"), 0);
   }
 
   return (
@@ -32,62 +36,62 @@ export function DecisionButtons({ formId }: { formId: string }) {
         <>
           <form action={approveAction}>
             <input type="hidden" name="formId" value={formId} />
-            <button
+            <Button
               type="submit"
               disabled={isApproving}
-              className="w-full rounded-xl bg-emerald-600 px-4 py-3 text-base font-medium text-white shadow-sm hover:bg-emerald-700 disabled:opacity-50"
+              variant="approve"
+              size="lg"
+              className="w-full"
             >
-              {isApproving ? "Approving…" : "Approve"}
-            </button>
+              {isApproving ? "Approving..." : "Approve"}
+            </Button>
           </form>
-          <button
+          <Button
             type="button"
             onClick={() => setShowReject(true)}
-            className="w-full rounded-xl border border-rose-300 bg-white px-4 py-3 text-base font-medium text-rose-700 hover:bg-rose-50"
+            variant="reject"
+            size="lg"
+            className="w-full"
           >
-            Reject…
-          </button>
+            Reject...
+          </Button>
           {approveState && !approveState.ok ? (
-            <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700 ring-1 ring-rose-200">
-              {approveState.error}
-            </p>
+            <Alert>{approveState.error}</Alert>
           ) : null}
         </>
       ) : (
         <form action={rejectAction} className="space-y-3">
           <input type="hidden" name="formId" value={formId} />
-          <label className="block">
-            <span className="text-sm font-medium text-slate-700">
-              Rejection reason
-            </span>
-            <textarea
+          <FormField label="Rejection reason">
+            <Textarea
               name="reason"
               required
               rows={3}
-              className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2.5 text-base shadow-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
               placeholder="Why is this being rejected?"
             />
-          </label>
+          </FormField>
           {rejectState && !rejectState.ok ? (
-            <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700 ring-1 ring-rose-200">
-              {rejectState.error}
-            </p>
+            <Alert>{rejectState.error}</Alert>
           ) : null}
-          <div className="flex gap-2">
-            <button
+          <div className="flex gap-3">
+            <Button
               type="submit"
               disabled={isRejecting}
-              className="flex-1 rounded-xl bg-rose-600 px-4 py-3 text-base font-medium text-white hover:bg-rose-700 disabled:opacity-50"
+              variant="danger"
+              size="lg"
+              className="flex-1"
             >
-              {isRejecting ? "Rejecting…" : "Confirm reject"}
-            </button>
-            <button
+              {isRejecting ? "Rejecting..." : "Confirm reject"}
+            </Button>
+            <Button
               type="button"
               onClick={() => setShowReject(false)}
-              className="flex-1 rounded-xl border border-slate-300 bg-white px-4 py-3 text-base font-medium text-slate-700 hover:bg-slate-50"
+              variant="secondary"
+              size="lg"
+              className="flex-1"
             >
               Cancel
-            </button>
+            </Button>
           </div>
         </form>
       )}

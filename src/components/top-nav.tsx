@@ -12,8 +12,7 @@ const WORKER_LINKS: NavLink[] = [
 
 const MANAGER_LINKS: NavLink[] = [
   { href: "/", label: "Home" },
-  { href: "/approvals/inbound", label: "Inbox: in" },
-  { href: "/approvals/outbound", label: "Inbox: out" },
+  { href: "/approvals", label: "Inbox" },
   { href: "/inbound", label: "Inbound" },
   { href: "/outbound", label: "Outbound" },
   { href: "/customers", label: "Customers" },

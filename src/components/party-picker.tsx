@@ -14,23 +14,13 @@ type PartyOption = {
 
 type Props = {
   kind: PartyKind;
-  /** The hidden form field name. Defaults to e.g. `customerId`. */
   name?: string;
-  /** Pre-selected option (e.g. when editing a draft form). */
   initial?: PartyOption | null;
   required?: boolean;
 };
 
 const SEARCH_DEBOUNCE_MS = 200;
 
-/**
- * Typeahead picker for customers or suppliers. Calls the corresponding
- * search server action; emits the selected id via a hidden input so that
- * any standard form submission picks it up.
- *
- * Used by F5 (inbound forms, kind="supplier") and F6 (outbound forms,
- * kind="customer").
- */
 export function PartyPicker({
   kind,
   name,
@@ -46,7 +36,6 @@ export function PartyPicker({
   const containerRef = useRef<HTMLDivElement>(null);
   const textInputRef = useRef<HTMLInputElement>(null);
 
-  // Close the dropdown when clicking outside.
   useEffect(() => {
     function onClick(e: MouseEvent) {
       if (!containerRef.current?.contains(e.target as Node)) setOpen(false);
@@ -64,7 +53,6 @@ export function PartyPicker({
     textInputRef.current?.setCustomValidity(message);
   }, [kind, required, selected]);
 
-  // Debounced search.
   useEffect(() => {
     if (!open) return;
     const handle = setTimeout(() => {
@@ -119,41 +107,41 @@ export function PartyPicker({
         }}
         onFocus={() => setOpen(true)}
         placeholder={
-          kind === "customer" ? "Search customers…" : "Search suppliers…"
+          kind === "customer" ? "Search customers..." : "Search suppliers..."
         }
         autoComplete="off"
-        className="block w-full rounded-lg border border-slate-300 px-3 py-2.5 text-base shadow-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
+        className="block w-full rounded-lg border border-surface-border bg-white px-3 py-2.5 text-sm shadow-sm placeholder:text-zinc-400 focus-ring transition-colors"
       />
       {selected ? (
         <button
           type="button"
           onClick={clear}
-          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md px-2 py-1 text-xs text-slate-500 hover:bg-slate-100"
+          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md px-2 py-1 text-xs font-medium text-zinc-500 hover:bg-zinc-100 focus-ring"
         >
           Clear
         </button>
       ) : null}
 
       {open ? (
-        <div className="absolute z-10 mt-1 w-full overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg">
+        <div className="absolute z-20 mt-1.5 w-full overflow-hidden rounded-lg border border-surface-border bg-white shadow-lg">
           {isPending && options.length === 0 ? (
-            <p className="p-3 text-sm text-slate-500">Searching…</p>
+            <p className="p-3 text-sm text-zinc-500">Searching...</p>
           ) : options.length === 0 ? (
-            <p className="p-3 text-sm text-slate-500">
+            <p className="p-3 text-sm text-zinc-500">
               No matches. Try a different name.
             </p>
           ) : (
-            <ul className="max-h-72 divide-y divide-slate-100 overflow-y-auto">
+            <ul className="max-h-60 divide-y divide-surface-border/60 overflow-y-auto">
               {options.map((opt) => (
                 <li key={opt.id}>
                   <button
                     type="button"
                     onClick={() => pick(opt)}
-                    className="block w-full px-3 py-2 text-left hover:bg-slate-50"
+                    className="block w-full px-3 py-2.5 text-left transition-colors hover:bg-emerald-50/50"
                   >
-                    <p className="font-medium">{opt.name}</p>
+                    <p className="text-sm font-medium text-zinc-900">{opt.name}</p>
                     {opt.hint ? (
-                      <p className="text-xs text-slate-500">{opt.hint}</p>
+                      <p className="text-xs text-zinc-500">{opt.hint}</p>
                     ) : null}
                   </button>
                 </li>

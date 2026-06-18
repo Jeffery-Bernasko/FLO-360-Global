@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation";
 import { requireUser } from "@/auth-server";
 import { UnauthorizedError } from "@/auth-helpers";
-import { TopNav } from "@/components/top-nav";
-import { getCurrentStock } from "@/lib/stock-ledger";
+import { AppShell } from "@/components/app-shell";
+import { PageHeader } from "@/components/ui/page-header";
 import { OutboundFormFields } from "../outbound-form-fields";
 
 export default async function NewOutboundFormPage() {
@@ -14,22 +14,15 @@ export default async function NewOutboundFormPage() {
     throw err;
   }
 
-  const currentStock = await getCurrentStock();
-
   return (
-    <>
-      <TopNav user={me} />
-      <main className="mx-auto max-w-md px-4 py-6">
-        <header className="mb-6">
-          <h1 className="text-xl font-semibold">New outbound dispatch</h1>
-          <p className="text-sm text-slate-500">
-            Submit for the manager&apos;s approval. Stock is deducted once
-            approved and an invoice PDF is generated.
-          </p>
-        </header>
-
-        <OutboundFormFields mode={{ kind: "create", currentStock }} />
-      </main>
-    </>
+    <AppShell user={me}>
+      <div className="mx-auto max-w-lg">
+        <PageHeader
+          title="New Outbound Dispatch"
+          description="Submit for the manager's approval. Stock is deducted once approved and an invoice PDF is generated."
+        />
+        <OutboundFormFields mode={{ kind: "create" }} />
+      </div>
+    </AppShell>
   );
 }

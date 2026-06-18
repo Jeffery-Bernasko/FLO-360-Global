@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { dateInputValue, reportSearchParams, type DateRange } from "@/lib/reports";
+import { IconDownload } from "@/components/icons";
 
 export function ReportsHeader({
   title,
@@ -10,11 +11,11 @@ export function ReportsHeader({
 }) {
   return (
     <header className="mb-6">
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+      <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-zinc-400">
         Reports
       </p>
-      <h1 className="text-xl font-semibold text-slate-950">{title}</h1>
-      <p className="mt-1 text-sm text-slate-500">{description}</p>
+      <h1 className="font-display text-2xl font-bold tracking-tight text-zinc-900">{title}</h1>
+      <p className="mt-1 text-sm text-zinc-500">{description}</p>
     </header>
   );
 }
@@ -27,12 +28,12 @@ export function ReportTabs() {
   ];
 
   return (
-    <nav className="mb-4 flex flex-wrap gap-2">
+    <nav className="mb-4 flex flex-wrap gap-1.5" aria-label="Report tabs">
       {links.map((link) => (
         <Link
           key={link.href}
           href={link.href}
-          className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          className="rounded-lg bg-white px-3.5 py-2 text-sm font-medium text-zinc-600 ring-1 ring-surface-border transition-colors hover:bg-emerald-50 hover:text-green-800"
         >
           {link.label}
         </Link>
@@ -41,42 +42,48 @@ export function ReportTabs() {
   );
 }
 
+export type ProductOption = { id: string; name: string };
+
 export function DateRangeForm({
   range,
   kind,
   showKind = false,
+  productId,
+  products,
 }: {
   range: DateRange;
   kind?: string;
   showKind?: boolean;
+  productId?: string;
+  products?: ProductOption[];
 }) {
   return (
-    <form className="mb-4 grid gap-3 rounded-2xl bg-white p-4 ring-1 ring-slate-200 sm:grid-cols-[1fr_1fr_auto_auto]">
+    <form className="mb-4 grid gap-3 rounded-xl bg-white p-4 ring-1 ring-surface-border sm:grid-cols-[1fr_1fr_auto_auto_auto]">
       <label className="block text-sm">
-        <span className="font-medium text-slate-700">From</span>
+        <span className="font-medium text-zinc-700">From</span>
         <input
           type="date"
           name="from"
           defaultValue={dateInputValue(range.from)}
-          className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-base"
+          className="mt-1.5 block w-full rounded-lg border border-surface-border px-3 py-2 text-sm focus-ring"
         />
       </label>
       <label className="block text-sm">
-        <span className="font-medium text-slate-700">To</span>
+        <span className="font-medium text-zinc-700">To</span>
         <input
           type="date"
           name="to"
           defaultValue={dateInputValue(range.to)}
-          className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-base"
+          className="mt-1.5 block w-full rounded-lg border border-surface-border px-3 py-2 text-sm focus-ring"
         />
       </label>
       {showKind ? (
         <label className="block text-sm">
-          <span className="font-medium text-slate-700">Kind</span>
+          <span className="font-medium text-zinc-700">Kind</span>
           <select
             name="kind"
             defaultValue={kind ?? "all"}
-            className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-base"
+            className="mt-1.5 block w-full rounded-lg border border-surface-border px-3 py-2 text-sm focus-ring"
           >
             <option value="all">All</option>
             <option value="inbound">Inbound</option>
@@ -85,9 +92,24 @@ export function DateRangeForm({
           </select>
         </label>
       ) : null}
+      {products && products.length > 0 ? (
+        <label className="block text-sm">
+          <span className="font-medium text-zinc-700">Product</span>
+          <select
+            name="productId"
+            defaultValue={productId ?? ""}
+            className="mt-1.5 block w-full rounded-lg border border-surface-border px-3 py-2 text-sm focus-ring"
+          >
+            <option value="">All products</option>
+            {products.map((p) => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+        </label>
+      ) : null}
       <button
         type="submit"
-        className="self-end rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-700"
+        className="self-end rounded-lg bg-green-800 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-green-900 focus-ring"
       >
         Apply
       </button>
@@ -99,12 +121,14 @@ export function ExportLinks({
   basePath,
   range,
   kind,
+  productId,
 }: {
   basePath: string;
   range: DateRange;
   kind?: "inbound" | "outbound" | "adjustment" | "all";
+  productId?: string;
 }) {
-  const params = reportSearchParams(range, kind);
+  const params = reportSearchParams(range, kind, productId);
   const csv = new URLSearchParams(params);
   csv.set("format", "csv");
   const pdf = new URLSearchParams(params);
@@ -114,14 +138,16 @@ export function ExportLinks({
     <div className="mb-4 flex justify-end gap-2">
       <Link
         href={`${basePath}/export?${csv.toString()}`}
-        className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+        className="inline-flex items-center gap-1.5 rounded-lg bg-white px-3 py-2 text-sm font-medium text-zinc-600 ring-1 ring-surface-border transition-colors hover:bg-zinc-50"
       >
+        <IconDownload width={14} height={14} />
         CSV
       </Link>
       <Link
         href={`${basePath}/export?${pdf.toString()}`}
-        className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+        className="inline-flex items-center gap-1.5 rounded-lg bg-white px-3 py-2 text-sm font-medium text-zinc-600 ring-1 ring-surface-border transition-colors hover:bg-zinc-50"
       >
+        <IconDownload width={14} height={14} />
         PDF
       </Link>
     </div>
@@ -130,15 +156,15 @@ export function ExportLinks({
 
 export function EmptyReport() {
   return (
-    <div className="rounded-2xl bg-white p-6 text-sm text-slate-500 ring-1 ring-slate-200">
-      No rows found for this date range.
+    <div className="flex flex-col items-center rounded-xl bg-white px-6 py-12 text-center ring-1 ring-surface-border">
+      <p className="text-sm text-zinc-500">No rows found for this date range.</p>
     </div>
   );
 }
 
 export function ReportErrorMessage({ message }: { message: string }) {
   return (
-    <div className="rounded-2xl bg-rose-50 p-4 text-sm text-rose-700 ring-1 ring-rose-200">
+    <div role="alert" className="rounded-xl bg-rose-50 p-4 text-sm text-rose-700 ring-1 ring-rose-200">
       {message}
     </div>
   );
@@ -151,6 +177,7 @@ export function PaginationLinks({
   pageSize,
   range,
   kind,
+  productId,
 }: {
   basePath: string;
   currentPage: number;
@@ -158,33 +185,34 @@ export function PaginationLinks({
   pageSize: number;
   range: DateRange;
   kind?: "inbound" | "outbound" | "adjustment" | "all";
+  productId?: string;
 }) {
   const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
   if (totalPages <= 1) return null;
 
   function href(page: number) {
-    const params = reportSearchParams(range, kind);
+    const params = reportSearchParams(range, kind, productId);
     params.set("page", String(page));
     return `${basePath}?${params.toString()}`;
   }
 
   return (
     <div className="mt-4 flex items-center justify-between text-sm">
-      <span className="text-slate-500">
+      <span className="text-zinc-500">
         Page {currentPage} of {totalPages}
       </span>
       <div className="flex gap-2">
         <Link
           href={href(Math.max(1, currentPage - 1))}
           aria-disabled={currentPage <= 1}
-          className="rounded-lg border border-slate-300 bg-white px-3 py-2 font-medium text-slate-700 aria-disabled:pointer-events-none aria-disabled:opacity-50"
+          className="rounded-lg bg-white px-3 py-2 font-medium text-zinc-600 ring-1 ring-surface-border transition-colors hover:bg-zinc-50 aria-disabled:pointer-events-none aria-disabled:opacity-40"
         >
           Previous
         </Link>
         <Link
           href={href(Math.min(totalPages, currentPage + 1))}
           aria-disabled={currentPage >= totalPages}
-          className="rounded-lg border border-slate-300 bg-white px-3 py-2 font-medium text-slate-700 aria-disabled:pointer-events-none aria-disabled:opacity-50"
+          className="rounded-lg bg-white px-3 py-2 font-medium text-zinc-600 ring-1 ring-surface-border transition-colors hover:bg-zinc-50 aria-disabled:pointer-events-none aria-disabled:opacity-40"
         >
           Next
         </Link>

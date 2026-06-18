@@ -3,16 +3,28 @@
 import Link from "next/link";
 import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { FormField, FormCard } from "@/components/ui/form-field";
+import { Alert } from "@/components/ui/alert";
+import { ProductPicker } from "@/components/product-picker";
 import {
   recordAdjustmentAction,
   type ActionResult,
 } from "./actions";
 import { ADJUSTMENT_REASONS } from "@/lib/adjustments-shared";
 
-const inputClass =
-  "mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2.5 text-base shadow-sm focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900";
+type ProductStock = { productId: string; productName: string; total: number };
 
-export function AdjustmentForm({ currentStock }: { currentStock: number }) {
+export function AdjustmentForm({
+  currentStock,
+  productStocks,
+}: {
+  currentStock: number;
+  productStocks: ProductStock[];
+}) {
   const [state, formAction, isPending] = useActionState<
     ActionResult<{ resultingStock: number }> | null,
     FormData
@@ -20,140 +32,150 @@ export function AdjustmentForm({ currentStock }: { currentStock: number }) {
   const router = useRouter();
   const [sign, setSign] = useState<"+" | "-">("-");
   const [magnitude, setMagnitude] = useState<number>(0);
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
 
   useEffect(() => {
     if (state?.ok) router.push("/adjustments");
   }, [state, router]);
 
-  const resultingStock = sign === "-" ? currentStock - magnitude : currentStock + magnitude;
+  const selectedProductStock =
+    selectedProductId != null
+      ? productStocks.find((p) => p.productId === selectedProductId)?.total ?? 0
+      : currentStock;
+
+  const resultingStock = sign === "-" ? selectedProductStock - magnitude : selectedProductStock + magnitude;
   const wouldGoNegative = resultingStock < 0;
 
   return (
-    <form
-      action={formAction}
-      className="space-y-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200"
-    >
-      <div className="rounded-lg bg-slate-50 p-3 text-sm ring-1 ring-slate-200">
-        <div className="flex items-baseline justify-between">
-          <span className="text-slate-500">Current stock</span>
-          <span className="font-medium">{currentStock} boxes</span>
-        </div>
-        {magnitude > 0 ? (
-          <div className="mt-1 flex items-baseline justify-between">
-            <span className="text-slate-500">After adjustment</span>
-            <span
-              className={`font-medium ${
-                wouldGoNegative ? "text-rose-700" : "text-slate-900"
-              }`}
-            >
-              {resultingStock} boxes
+    <form action={formAction}>
+      <FormCard>
+        {/* Product picker */}
+        <FormField label="Product">
+          <ProductPicker
+            name="productId"
+            required
+            onSelect={(p) => setSelectedProductId(p?.id ?? null)}
+          />
+        </FormField>
+
+        {/* Stock preview */}
+        <div className="rounded-lg bg-zinc-50 p-4 ring-1 ring-surface-border">
+          <div className="flex items-baseline justify-between text-sm">
+            <span className="text-zinc-500">
+              {selectedProductId ? "Product stock" : "Total stock"}
+            </span>
+            <span className="font-mono font-medium text-zinc-900">
+              {selectedProductStock} boxes
             </span>
           </div>
-        ) : null}
-      </div>
+          {magnitude > 0 ? (
+            <div className="mt-1.5 flex items-baseline justify-between text-sm">
+              <span className="text-zinc-500">After adjustment</span>
+              <span
+                className={`font-mono font-semibold ${
+                  wouldGoNegative ? "text-rose-600" : "text-zinc-900"
+                }`}
+              >
+                {resultingStock} boxes
+              </span>
+            </div>
+          ) : null}
+        </div>
 
-      <fieldset className="flex gap-2">
-        <legend className="text-sm font-medium text-slate-700">
-          Direction
-        </legend>
-        <label
-          className={`flex-1 cursor-pointer rounded-lg border px-4 py-3 text-center text-base font-medium ${
-            sign === "-"
-              ? "border-rose-300 bg-rose-50 text-rose-800"
-              : "border-slate-300 bg-white text-slate-700"
-          }`}
-        >
-          <input
-            type="radio"
-            name="sign"
-            value="-"
-            checked={sign === "-"}
-            onChange={() => setSign("-")}
-            className="sr-only"
+        {/* Direction */}
+        <fieldset>
+          <legend className="text-sm font-medium text-zinc-700 mb-2">Direction</legend>
+          <div className="flex gap-3">
+            <label
+              className={`flex-1 cursor-pointer rounded-lg border-2 px-4 py-3 text-center text-sm font-semibold transition-all ${
+                sign === "-"
+                  ? "border-rose-400 bg-rose-50 text-rose-800"
+                  : "border-surface-border bg-white text-zinc-500 hover:bg-zinc-50"
+              }`}
+            >
+              <input
+                type="radio"
+                name="sign"
+                value="-"
+                checked={sign === "-"}
+                onChange={() => setSign("-")}
+                className="sr-only"
+              />
+              Remove boxes
+            </label>
+            <label
+              className={`flex-1 cursor-pointer rounded-lg border-2 px-4 py-3 text-center text-sm font-semibold transition-all ${
+                sign === "+"
+                  ? "border-emerald-400 bg-emerald-50 text-emerald-800"
+                  : "border-surface-border bg-white text-zinc-500 hover:bg-zinc-50"
+              }`}
+            >
+              <input
+                type="radio"
+                name="sign"
+                value="+"
+                checked={sign === "+"}
+                onChange={() => setSign("+")}
+                className="sr-only"
+              />
+              Add boxes
+            </label>
+          </div>
+        </fieldset>
+
+        <FormField label="Boxes">
+          <Input
+            type="number"
+            name="magnitude"
+            required
+            min={1}
+            step={1}
+            inputMode="numeric"
+            value={magnitude || ""}
+            onChange={(e) => setMagnitude(Number(e.target.value))}
           />
-          Remove boxes
-        </label>
-        <label
-          className={`flex-1 cursor-pointer rounded-lg border px-4 py-3 text-center text-base font-medium ${
-            sign === "+"
-              ? "border-emerald-300 bg-emerald-50 text-emerald-800"
-              : "border-slate-300 bg-white text-slate-700"
-          }`}
-        >
-          <input
-            type="radio"
-            name="sign"
-            value="+"
-            checked={sign === "+"}
-            onChange={() => setSign("+")}
-            className="sr-only"
-          />
-          Add boxes
-        </label>
-      </fieldset>
+        </FormField>
 
-      <label className="block">
-        <span className="text-sm font-medium text-slate-700">Boxes</span>
-        <input
-          type="number"
-          name="magnitude"
-          required
-          min={1}
-          step={1}
-          inputMode="numeric"
-          value={magnitude || ""}
-          onChange={(e) => setMagnitude(Number(e.target.value))}
-          className={inputClass}
-        />
-      </label>
-
-      <label className="block">
-        <span className="text-sm font-medium text-slate-700">Reason</span>
-        <select name="reason" required defaultValue="" className={inputClass}>
-          <option value="" disabled>
-            Pick a reason…
-          </option>
-          {ADJUSTMENT_REASONS.map((r) => (
-            <option key={r} value={r}>
-              {r}
+        <FormField label="Reason">
+          <Select name="reason" required defaultValue="">
+            <option value="" disabled>
+              Pick a reason...
             </option>
-          ))}
-        </select>
-      </label>
+            {ADJUSTMENT_REASONS.map((r) => (
+              <option key={r} value={r}>
+                {r}
+              </option>
+            ))}
+          </Select>
+        </FormField>
 
-      <label className="block">
-        <span className="text-sm font-medium text-slate-700">
-          Note <span className="text-slate-400">(optional)</span>
-        </span>
-        <textarea
-          name="note"
-          rows={3}
-          className={inputClass}
-          placeholder="Detail for the audit trail"
-        />
-      </label>
+        <FormField label="Note" optional>
+          <Textarea
+            name="note"
+            rows={3}
+            placeholder="Detail for the audit trail"
+          />
+        </FormField>
 
-      {state && !state.ok ? (
-        <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700 ring-1 ring-rose-200">
-          {state.error}
-        </p>
-      ) : null}
+        {state && !state.ok ? <Alert>{state.error}</Alert> : null}
 
-      <div className="flex gap-2">
-        <button
-          type="submit"
-          disabled={isPending || magnitude <= 0 || wouldGoNegative}
-          className="flex-1 rounded-xl bg-slate-900 px-4 py-3 text-base font-medium text-white shadow-sm hover:bg-slate-700 disabled:opacity-50"
-        >
-          {isPending ? "Recording…" : "Record adjustment"}
-        </button>
-        <Link
-          href="/adjustments"
-          className="flex-1 rounded-xl border border-slate-300 bg-white px-4 py-3 text-center text-base font-medium text-slate-700 hover:bg-slate-50"
-        >
-          Cancel
-        </Link>
-      </div>
+        <div className="flex gap-3 pt-1">
+          <Button
+            type="submit"
+            disabled={isPending || magnitude <= 0 || wouldGoNegative || !selectedProductId}
+            className="flex-1"
+            size="lg"
+          >
+            {isPending ? "Recording..." : "Record adjustment"}
+          </Button>
+          <Link
+            href="/adjustments"
+            className="flex-1 inline-flex items-center justify-center rounded-lg bg-white px-5 py-3 text-sm font-medium text-zinc-700 shadow-sm ring-1 ring-surface-border transition-colors hover:bg-zinc-50"
+          >
+            Cancel
+          </Link>
+        </div>
+      </FormCard>
     </form>
   );
 }
